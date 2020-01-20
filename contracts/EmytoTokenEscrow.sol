@@ -11,6 +11,36 @@ contract EmytoTokenEscrow is Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
+    event CreateEscrow(
+        uint256 _escrowId,
+        address _depositant,
+        address _retreader,
+        address _agent,
+        uint256 _fee,
+        IERC20 _token
+    );
+
+    event ApproveEscrow(uint256 _escrowId);
+
+    event Deposit(
+        uint256 _escrowId,
+        address _sender,
+        uint256 _amount,
+        uint256 _toOwner
+    );
+
+    event Withdraw(
+        uint256 _escrowId,
+        address _sender,
+        address _to,
+        uint256 _toAmount,
+        uint256 _toAgent
+    );
+
+    event Cancel(uint256 _escrowId, uint256 _amount);
+
+    event OwnerWithdraw(IERC20 _token, uint256 _amount);
+
     struct Escrow {
         address depositant;
         address retreader;
@@ -52,6 +82,8 @@ contract EmytoTokenEscrow is Ownable {
 
         if (msg.sender == _agent)
             approvedEscrows[escrowId] = true;
+
+        emit CreateEscrow(escrowId, _depositant, _retreader, _agent, _fee, _token);
     }
 
     function approveEscrow(
@@ -60,6 +92,8 @@ contract EmytoTokenEscrow is Ownable {
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == escrow.agent, "approveEscrow: The sender should be the agent of the excrow");
         approvedEscrows[_escrowId] = true;
+
+        emit ApproveEscrow(_escrowId);
     }
 
     function deposit(
@@ -79,6 +113,8 @@ contract EmytoTokenEscrow is Ownable {
 
         ownerBalance[address(escrow.token)] += toOwner;
         escrow.balance += _amount;
+
+        emit Deposit(_escrowId, msg.sender, _amount, toOwner);
     }
 
     function withdrawToRetreader(
@@ -109,15 +145,20 @@ contract EmytoTokenEscrow is Ownable {
             escrow.token.safeTransfer(escrow.depositant, balance),
             "cancel: Error transfer to the depositant"
         );
+
+        emit Cancel(_escrowId, balance);
     }
 
     function ownerWithdraw(
         IERC20 _token
     ) external onlyOwner {
+        uint256 balance = ownerBalance[address(_token)];
         require(
-            _token.safeTransfer(_owner, ownerBalance[address(_token)]),
+            _token.safeTransfer(_owner, balance),
             "ownerWithdraw: Error transfer to the owner"
         );
+
+        emit OwnerWithdraw(_token, balance);
     }
 
     function _withdraw(
@@ -144,6 +185,8 @@ contract EmytoTokenEscrow is Ownable {
             escrow.token.safeTransfer(_to, toAmount),
             "_withdraw: Error transfer to the _to"
         );
+
+        emit Withdraw(_escrowId, _from, _to, toAmount, toAgent);
     }
 
     function _feeAmount(
