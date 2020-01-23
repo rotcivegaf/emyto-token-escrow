@@ -12,34 +12,39 @@ contract EmytoTokenEscrow is Ownable {
     using SafeMath for uint256;
 
     event CreateEscrow(
-        uint256 _escrowId,
+        bytes32 _escrowId,
         address _depositant,
         address _retreader,
         address _agent,
         uint256 _fee,
-        IERC20 _token
+        IERC20 _token,
+        uint256 _salt
     );
 
-    event ApproveEscrow(uint256 _escrowId);
+    event ApproveEscrow(bytes32 _escrowId);
+
+    event RemoveApproveEscrow(bytes32 _escrowId);
 
     event Deposit(
-        uint256 _escrowId,
+        bytes32 _escrowId,
         address _sender,
         uint256 _amount,
         uint256 _toOwner
     );
 
     event Withdraw(
-        uint256 _escrowId,
+        bytes32 _escrowId,
         address _sender,
         address _to,
         uint256 _toAmount,
         uint256 _toAgent
     );
 
-    event Cancel(uint256 _escrowId, uint256 _amount);
+    event Cancel(bytes32 _escrowId, uint256 _amount);
 
-    event OwnerWithdraw(IERC20 _token, uint256 _amount);
+    event SetOwnerFee(uint256 _fee);
+
+    event OwnerWithdraw(IERC20 _token, address _to, uint256 _amount);
 
     struct Escrow {
         address depositant;
@@ -52,25 +57,62 @@ contract EmytoTokenEscrow is Ownable {
 
     // 10000 ==  100%
     //   505 == 5.05%
-    uint256 BASE = 10000;
-    uint256 ownerFee;
+    uint256 public BASE = 10000;
+    uint256 public ownerFee;
 
-    // [wallet, Token] to balance
+    // Token to balance of owner
     mapping (address => uint256) public ownerBalance;
-    mapping (uint256 => Escrow) public escrows;
-    mapping (uint256 => bool) public approvedEscrows;
+    mapping (bytes32 => Escrow) public escrows;
+    mapping (bytes32 => bool) public approvedEscrows;
 
-    constructor(uint256 _ownerFee) public {
+    // OnlyOwner functions
+
+    function setOwnerFee(uint256 _ownerFee) external onlyOwner {
+        require(_ownerFee <= 5000, "The owner fee should be low or equal than 5000(50%)");
         ownerFee = _ownerFee;
+
+        emit SetOwnerFee(_ownerFee);
     }
+
+    function ownerWithdraw(
+        IERC20 _token,
+        address _to,
+        uint256 _amount
+    ) external onlyOwner {
+        require(_to != address(0), 'ownerWithdraw: The to address 0 its invalid');
+
+        ownerBalance[address(_token)] = ownerBalance[address(_token)].sub(_amount);
+
+        require(
+            _token.safeTransfer(_to, _amount),
+            "ownerWithdraw: Error transfer to the owner"
+        );
+
+        emit OwnerWithdraw(_token, _to, _amount);
+    }
+
+    // External functions
 
     function createEscrow(
         address _depositant,
         address _retreader,
         address _agent,
         uint256 _fee,
-        IERC20 _token
-    ) external returns(uint256 escrowId) {
+        IERC20 _token,
+        uint256 _salt
+    ) external returns(bytes32 escrowId) {
+        require(_fee <= 1000, "The agent fee should be low or equal than 1000(10%)");
+
+        escrowId = keccak256(
+          abi.encodePacked(
+            address(this),
+            _depositant,
+            _retreader,
+            _agent,
+            _salt
+          )
+        );
+
         escrows[escrowId] = Escrow({
             depositant: _depositant,
             retreader: _retreader,
@@ -83,26 +125,38 @@ contract EmytoTokenEscrow is Ownable {
         if (msg.sender == _agent)
             approvedEscrows[escrowId] = true;
 
-        emit CreateEscrow(escrowId, _depositant, _retreader, _agent, _fee, _token);
+        emit CreateEscrow(escrowId, _depositant, _retreader, _agent, _fee, _token, _salt);
     }
 
     function approveEscrow(
-        uint256 _escrowId
+        bytes32 _escrowId
     ) external {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.agent, "approveEscrow: The sender should be the agent of the excrow");
+        require(msg.sender == escrow.agent, "approveEscrow: The sender should be the agent of the escrow");
         approvedEscrows[_escrowId] = true;
 
         emit ApproveEscrow(_escrowId);
     }
 
+    function removeApproveEscrow(
+        bytes32 _escrowId
+    ) external {
+        Escrow storage escrow = escrows[_escrowId];
+        require(escrow.agent == msg.sender, "removeApproveEscrow: The sender should be the agent of the escrow");
+        require(escrow.balance == 0, "removeApproveEscrow: The escrow still have amount");
+
+        approvedEscrows[_escrowId] = false;
+
+        emit RemoveApproveEscrow(_escrowId);
+    }
+
     function deposit(
-      uint256 _escrowId,
+      bytes32 _escrowId,
       uint256 _amount // Amount without fees
     ) external {
         require(approvedEscrows[_escrowId], "deposit: The escrow its not approved by the agent");
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.depositant || msg.sender == escrow.agent, "deposit: The sender should be the depositant or the agent");
+        require(msg.sender == escrow.depositant, "deposit: The sender should be the depositant");
 
         uint256 toOwner = _feeAmount(_amount, ownerFee);
 
@@ -118,21 +172,23 @@ contract EmytoTokenEscrow is Ownable {
     }
 
     function withdrawToRetreader(
-        uint256 _escrowId
+        bytes32 _escrowId,
+        uint256 _amount
     ) external {
         Escrow storage escrow = escrows[_escrowId];
-        _withdraw(_escrowId, escrow.depositant, escrow.retreader);
+        _withdraw(_escrowId, escrow.depositant, escrow.retreader, _amount);
     }
 
     function withdrawToDepositant(
-        uint256 _escrowId
+        bytes32 _escrowId,
+        uint256 _amount
     ) external {
         Escrow storage escrow = escrows[_escrowId];
-        _withdraw(_escrowId, escrow.retreader, escrow.depositant);
+        _withdraw(_escrowId, escrow.retreader, escrow.depositant, _amount);
     }
 
     function cancel(
-        uint256 _escrowId
+        bytes32 _escrowId
     ) external {
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == escrow.agent, "cancel: The sender should be the agent");
@@ -149,37 +205,27 @@ contract EmytoTokenEscrow is Ownable {
         emit Cancel(_escrowId, balance);
     }
 
-    function ownerWithdraw(
-        IERC20 _token
-    ) external onlyOwner {
-        uint256 balance = ownerBalance[address(_token)];
-        require(
-            _token.safeTransfer(_owner, balance),
-            "ownerWithdraw: Error transfer to the owner"
-        );
-
-        emit OwnerWithdraw(_token, balance);
-    }
+    // Internal functions
 
     function _withdraw(
-        uint256 _escrowId,
+        bytes32 _escrowId,
         address _from,
-        address _to
+        address _to,
+        uint256 _amount
     ) internal returns(uint256) {
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == _from || msg.sender == escrow.agent, "_withdraw: Error wrong sender");
 
-        uint256 balance = escrow.balance;
-        uint256 toAgent = _feeAmount(balance, escrow.fee);
-        uint256 toAmount = balance - toAgent;
+        uint256 toAgent = _feeAmount(_amount, escrow.fee);
 
-        delete (escrow.balance);
-        approvedEscrows[_escrowId] = false; // si se puede sacar de a pequenios montos, tendria que haber un if
+        escrow.balance = escrow.balance.sub(_amount);
 
         require(
             escrow.token.safeTransfer(escrow.agent, toAgent),
             "_withdraw: Error transfer tokens to the agent"
         );
+
+        uint256 toAmount = _amount.sub(toAgent);
 
         require(
             escrow.token.safeTransfer(_to, toAmount),
