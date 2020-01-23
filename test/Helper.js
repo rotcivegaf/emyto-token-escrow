@@ -12,6 +12,18 @@ module.exports.bn = (number) => {
   return web3.utils.toBN(number);
 };
 
+module.exports.maxUint = (base) => {
+  return this.bn('2').pow(this.bn(base)).sub(this.bn('1'));
+};
+
+module.exports.random32bn = () => {
+  return this.bn(this.random32());
+};
+
+module.exports.random32 = () => {
+  return web3.utils.randomHex(32);
+};
+
 // the promiseFunction should be a function
 module.exports.tryCatchRevert = async (promise, message, headMsg = 'revert ') => {
   if (message === '') {
