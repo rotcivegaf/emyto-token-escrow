@@ -68,7 +68,7 @@ contract EmytoTokenEscrow is Ownable {
     // OnlyOwner functions
 
     function setOwnerFee(uint256 _ownerFee) external onlyOwner {
-        require(_ownerFee <= 5000, "The owner fee should be low or equal than 5000(50%)");
+        require(_ownerFee <= 5000, "setOwnerFee: The owner fee should be low or equal than 5000");
         ownerFee = _ownerFee;
 
         emit SetOwnerFee(_ownerFee);
@@ -101,7 +101,8 @@ contract EmytoTokenEscrow is Ownable {
         IERC20 _token,
         uint256 _salt
     ) external returns(bytes32 escrowId) {
-        require(_fee <= 1000, "The agent fee should be low or equal than 1000(10%)");
+        require(_agent != address(0), "createEscrow: The escrow should be have an agent");
+        require(_fee <= 1000, "createEscrow: The agent fee should be low or equal than 1000");
 
         escrowId = keccak256(
           abi.encodePacked(
@@ -112,6 +113,8 @@ contract EmytoTokenEscrow is Ownable {
             _salt
           )
         );
+
+        require(escrows[escrowId].agent == address(0), "createEscrow: The escrow exists");
 
         escrows[escrowId] = Escrow({
             depositant: _depositant,
@@ -154,9 +157,9 @@ contract EmytoTokenEscrow is Ownable {
       bytes32 _escrowId,
       uint256 _amount // Amount without fees
     ) external {
-        require(approvedEscrows[_escrowId], "deposit: The escrow its not approved by the agent");
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == escrow.depositant, "deposit: The sender should be the depositant");
+        require(approvedEscrows[_escrowId], "deposit: The escrow its not approved by the agent");
 
         uint256 toOwner = _feeAmount(_amount, ownerFee);
 
