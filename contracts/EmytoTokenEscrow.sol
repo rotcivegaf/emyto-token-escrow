@@ -27,8 +27,7 @@ contract EmytoTokenEscrow is Ownable {
 
     event Deposit(
         bytes32 _escrowId,
-        address _sender,
-        uint256 _amount,
+        uint256 _toEscrow,
         uint256 _toOwner
     );
 
@@ -61,7 +60,7 @@ contract EmytoTokenEscrow is Ownable {
     uint256 public ownerFee;
 
     // Token to balance of owner
-    mapping (address => uint256) public ownerBalance;
+    mapping (address => uint256) public ownerBalances;
     mapping (bytes32 => Escrow) public escrows;
     mapping (bytes32 => bool) public approvedEscrows;
 
@@ -81,7 +80,7 @@ contract EmytoTokenEscrow is Ownable {
     ) external onlyOwner {
         require(_to != address(0), 'ownerWithdraw: The to address 0 its invalid');
 
-        ownerBalance[address(_token)] = ownerBalance[address(_token)].sub(_amount);
+        ownerBalances[address(_token)] = ownerBalances[address(_token)].sub(_amount);
 
         require(
             _token.safeTransfer(_to, _amount),
@@ -164,14 +163,15 @@ contract EmytoTokenEscrow is Ownable {
         uint256 toOwner = _feeAmount(_amount, ownerFee);
 
         require(
-            escrow.token.safeTransferFrom(msg.sender, address(this), _amount.add(toOwner)),
+            escrow.token.safeTransferFrom(msg.sender, address(this), _amount),
             "deposit: Error deposit tokens"
         );
 
-        ownerBalance[address(escrow.token)] += toOwner;
-        escrow.balance += _amount;
+        ownerBalances[address(escrow.token)] += toOwner;
+        uint256 toEscrow = _amount.sub(toOwner);
+        escrow.balance += toEscrow;
 
-        emit Deposit(_escrowId, msg.sender, _amount, toOwner);
+        emit Deposit(_escrowId, toEscrow, toOwner);
     }
 
     function withdrawToRetreader(
@@ -235,7 +235,7 @@ contract EmytoTokenEscrow is Ownable {
             "_withdraw: Error transfer to the _to"
         );
 
-        emit Withdraw(_escrowId, _from, _to, toAmount, toAgent);
+        emit Withdraw(_escrowId, msg.sender, _to, toAmount, toAgent);
     }
 
     function _feeAmount(
