@@ -57,6 +57,7 @@ contract EmytoTokenEscrow is Ownable {
     // 10000 ==  100%
     //   505 == 5.05%
     uint256 public BASE = 10000;
+    uint256 public MAX_OWNER_FEE = 5000;
     uint256 public ownerFee;
 
     // Token to balance of owner
@@ -67,7 +68,7 @@ contract EmytoTokenEscrow is Ownable {
     // OnlyOwner functions
 
     function setOwnerFee(uint256 _ownerFee) external onlyOwner {
-        require(_ownerFee <= 5000, "setOwnerFee: The owner fee should be low or equal than 5000");
+        require(_ownerFee <= MAX_OWNER_FEE, "setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE");
         ownerFee = _ownerFee;
 
         emit SetOwnerFee(_ownerFee);
