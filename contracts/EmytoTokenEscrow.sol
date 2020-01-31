@@ -11,6 +11,8 @@ contract EmytoTokenEscrow is Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
+    // Events
+
     event CreateEscrow(
         bytes32 _escrowId,
         address _depositant,
@@ -67,6 +69,13 @@ contract EmytoTokenEscrow is Ownable {
 
     // OnlyOwner functions
 
+    /**
+        @notice Set the owner fee
+
+        @dev Only the owner of the contract can send this transaction
+
+        @param _ownerFee The new owner fee
+    */
     function setOwnerFee(uint256 _ownerFee) external onlyOwner {
         require(_ownerFee <= MAX_OWNER_FEE, "setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE");
         ownerFee = _ownerFee;
@@ -74,6 +83,15 @@ contract EmytoTokenEscrow is Ownable {
         emit SetOwnerFee(_ownerFee);
     }
 
+    /**
+        @notice Withdraw the accumulated amount of the fee
+
+        @dev Only the owner of the contract can send this transaction
+
+        @param _token The address of the token to withdraw
+        @param _to The address destination of the tokens
+        @param _amount The amount to withdraw
+    */
     function ownerWithdraw(
         IERC20 _token,
         address _to,
@@ -93,6 +111,29 @@ contract EmytoTokenEscrow is Ownable {
 
     // External functions
 
+    /**
+        @notice Create an escrow, previous need the approve of the ERC20 tokens
+            Fee: The ratio is expressed in order of BASE, for example
+                1% is 100
+                50.00% is 5000
+                23.45% is 2345
+
+        @dev This generate an ERC721 and the id its generate with keccak256 function,
+            using the addres of this contract, the _depositant, the _retreader,
+            the _agent and the salt number
+
+            The _agent should not be the address 0
+            The _fee should be low or equal than 1000
+
+        @param _depositant The depositant address
+        @param _retreader The retreader address
+        @param _agent The agent address
+        @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
+        @param _token The token address
+        @param _salt An entropy value, used to generate the id
+
+        @return The id of the entry
+    */
     function createEscrow(
         address _depositant,
         address _retreader,
