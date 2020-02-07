@@ -299,10 +299,12 @@ contract EmytoTokenEscrow is Ownable {
         // Remove approve escrow
         approvedEscrows[_escrowId] = false;
 
-        require(
-            escrow.token.safeTransfer(escrow.depositant, balance),
-            "cancel: Error transfer to the depositant"
-        );
+        // Send the tokens to the depositant if the escrow have balance
+        if (balance != 0)
+            require(
+                escrow.token.safeTransfer(escrow.depositant, balance),
+                "cancel: Error transfer to the depositant"
+            );
 
         emit Cancel(_escrowId, balance);
     }
