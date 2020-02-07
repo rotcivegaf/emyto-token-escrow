@@ -17,8 +17,8 @@ contract TestSafeMathMock {
         c = a.sub(b);
     }
 
-    function mult(uint256 a, uint256 b) external returns (uint256 c) {
-        c = a.mult(b);
+    function mul(uint256 a, uint256 b) external returns (uint256 c) {
+        c = a.mul(b);
     }
 }
 
@@ -80,17 +80,17 @@ contract TestSafeMath {
     }
 
     function testMult() external {
-        Assert.equal(uint256(0).mult(1234), 0, "");
-        Assert.equal(uint256(1234).mult(0), 0, "");
-        Assert.equal(uint256(0).mult(0), 0, "");
-        Assert.equal(uint256(20).mult(10), 200, "");
-        Assert.equal(uint256(10).mult(20), 200, "");
+        Assert.equal(uint256(0).mul(1234), 0, "");
+        Assert.equal(uint256(1234).mul(0), 0, "");
+        Assert.equal(uint256(0).mul(0), 0, "");
+        Assert.equal(uint256(20).mul(10), 200, "");
+        Assert.equal(uint256(10).mul(20), 200, "");
 
         // Overflow tests
         bool success;
         (success,) = address(safeMath).call(
             abi.encodeWithSelector(
-                safeMath.mult.selector,
+                safeMath.mul.selector,
                 0 - 1,
                 0 - 1
             )
