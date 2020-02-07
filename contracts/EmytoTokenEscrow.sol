@@ -119,7 +119,7 @@ contract EmytoTokenEscrow is Ownable {
                 50.00% is 5000
                 23.45% is 2345
 
-        @dev This generate an ERC721 and the id its generate with keccak256 function,
+        @dev The id of the escrow its generate with keccak256 function,
             using the addres of this contract, the _depositant, the _retreader,
             the _agent and the salt number
 
