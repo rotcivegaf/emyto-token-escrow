@@ -67,8 +67,3 @@ module.exports.toEvents = async (tx, ...events) => {
   eventObjs = eventObjs.map(x => x.args);
   return (eventObjs.length === 1) ? eventObjs[0] : eventObjs;
 };
-
-module.exports.eventNotEmitted = async (receipt, eventName) => {
-  const logsCount = receipt.logs.length;
-  assert.equal(logsCount, 0, 'Should have not emitted the event ' + eventName);
-};
