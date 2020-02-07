@@ -323,12 +323,12 @@ contract EmytoTokenEscrow is Ownable {
     */
     function _withdraw(
         bytes32 _escrowId,
-        address _from,
+        address _approved,
         address _to,
         uint256 _amount
-    ) internal returns(uint256) {
+    ) internal {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == _from || msg.sender == escrow.agent, "_withdraw: Error wrong sender");
+        require(msg.sender == _approved || msg.sender == escrow.agent, "_withdraw: The sender should be the _approved or the agent");
 
         // Calculate the fee
         uint256 toAgent = _feeAmount(_amount, escrow.fee);
