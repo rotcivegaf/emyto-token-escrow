@@ -187,8 +187,8 @@ contract EmytoTokenEscrow is Ownable {
     function approveEscrow(
         bytes32 _escrowId
     ) external {
-        Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.agent, "approveEscrow: The sender should be the agent of the escrow");
+        require(msg.sender == escrows[_escrowId].agent, "approveEscrow: The sender should be the agent of the escrow");
+
         approvedEscrows[_escrowId] = true;
 
         emit ApproveEscrow(_escrowId);
