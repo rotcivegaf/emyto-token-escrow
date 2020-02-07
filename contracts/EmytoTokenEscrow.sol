@@ -59,7 +59,8 @@ contract EmytoTokenEscrow is Ownable {
     // 10000 ==  100%
     //   505 == 5.05%
     uint256 public BASE = 10000;
-    uint256 public MAX_OWNER_FEE = 5000;
+    uint256 private MAX_OWNER_FEE = 5000;
+    uint256 private MAX_AGENT_FEE = 1000;
     uint256 public ownerFee;
 
     // Token to balance of owner
@@ -123,7 +124,7 @@ contract EmytoTokenEscrow is Ownable {
             the _agent and the salt number
 
             The _agent should not be the address 0
-            The _fee should be low or equal than 1000
+            The _fee should be low or equal than 1000(10%)
 
         @param _depositant The depositant address
         @param _retreader The retreader address
@@ -143,7 +144,7 @@ contract EmytoTokenEscrow is Ownable {
         uint256 _salt
     ) external returns(bytes32 escrowId) {
         require(_agent != address(0), "createEscrow: The escrow should be have an agent");
-        require(_fee <= 1000, "createEscrow: The agent fee should be low or equal than 1000");
+        require(_fee <= MAX_AGENT_FEE, "createEscrow: The agent fee should be low or equal than 1000");
 
         escrowId = keccak256(
           abi.encodePacked(

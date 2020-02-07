@@ -175,7 +175,7 @@ contract('EmytoTokenEscrow', (accounts) => {
           5001,
           { from: owner }
         ),
-        'setOwnerFee: The owner fee should be low or equal than 5000'
+        'setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE'
       );
 
       await tryCatchRevert(
@@ -183,7 +183,7 @@ contract('EmytoTokenEscrow', (accounts) => {
           maxUint(256),
           { from: owner }
         ),
-        'setOwnerFee: The owner fee should be low or equal than 5000'
+        'setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE'
       );
     });
   });
