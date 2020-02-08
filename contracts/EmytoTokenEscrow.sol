@@ -7,6 +7,10 @@ import "./utils/SafeMath.sol";
 import "./interfaces/IERC20.sol";
 
 
+/**
+    @title Emyto token escrow
+    @author Victor Fage <victorfage@gmail.com>
+*/
 contract EmytoTokenEscrow is Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
