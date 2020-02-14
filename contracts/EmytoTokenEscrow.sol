@@ -19,17 +19,13 @@ contract EmytoTokenEscrow is Ownable {
 
     event CreateEscrow(
         bytes32 _escrowId,
+        address _agent,
         address _depositant,
         address _retreader,
-        address _agent,
         uint256 _fee,
         IERC20 _token,
         uint256 _salt
     );
-
-    event ApproveEscrow(bytes32 _escrowId);
-
-    event RemoveApproveEscrow(bytes32 _escrowId);
 
     event Deposit(
         bytes32 _escrowId,
@@ -52,9 +48,9 @@ contract EmytoTokenEscrow is Ownable {
     event OwnerWithdraw(IERC20 _token, address _to, uint256 _amount);
 
     struct Escrow {
+        address agent;
         address depositant;
         address retreader;
-        address agent;
         uint256 fee;
         IERC20 token;
         uint256 balance;
@@ -68,9 +64,8 @@ contract EmytoTokenEscrow is Ownable {
     uint256 public ownerFee;
 
     // Token to balance of owner
-    mapping (address => uint256) public ownerBalances;
-    mapping (bytes32 => Escrow) public escrows;
-    mapping (bytes32 => bool) public approvedEscrows;
+    mapping(address => uint256) public ownerBalances;
+    mapping(bytes32 => Escrow) public escrows;
 
     // OnlyOwner functions
 
@@ -114,6 +109,27 @@ contract EmytoTokenEscrow is Ownable {
         emit OwnerWithdraw(_token, _to, _amount);
     }
 
+    // View functions
+
+    function calculateId(
+        address _agent,
+        address _depositant,
+        address _retreader,
+        IERC20 _token,
+        uint256 _salt
+    ) public view returns(bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                address(this),
+                _agent,
+                _depositant,
+                _retreader,
+                _token,
+                _salt
+            )
+        );
+    }
+
     // External functions
 
     /**
@@ -124,15 +140,14 @@ contract EmytoTokenEscrow is Ownable {
                 23.45% is 2345
 
         @dev The id of the escrow its generate with keccak256 function,
-            using the addres of this contract, the _depositant, the _retreader,
-            the _agent and the salt number
+            using the address of this contract, the _depositant, the _retreader,
+            the sender, the _token and the salt number
 
-            The _agent should not be the address 0
+            The agent will be the sender of the transaction
             The _fee should be low or equal than 1000(10%)
 
         @param _depositant The depositant address
         @param _retreader The retreader address
-        @param _agent The agent address
         @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
         @param _token The token address
         @param _salt An entropy value, used to generate the id
@@ -142,23 +157,19 @@ contract EmytoTokenEscrow is Ownable {
     function createEscrow(
         address _depositant,
         address _retreader,
-        address _agent,
         uint256 _fee,
         IERC20 _token,
         uint256 _salt
     ) external returns(bytes32 escrowId) {
-        require(_agent != address(0), "createEscrow: The escrow should be have an agent");
         require(_fee <= MAX_AGENT_FEE, "createEscrow: The agent fee should be low or equal than 1000");
 
         // Calculate the escrow id
-        escrowId = keccak256(
-          abi.encodePacked(
-            address(this),
+        escrowId = calculateId(
+            msg.sender,
             _depositant,
             _retreader,
-            _agent,
+            _token,
             _salt
-          )
         );
 
         // Check if the escrow was created
@@ -166,73 +177,28 @@ contract EmytoTokenEscrow is Ownable {
 
         // Add escrow to the escrows array
         escrows[escrowId] = Escrow({
+            agent: msg.sender,
             depositant: _depositant,
             retreader: _retreader,
-            agent: _agent,
             fee: _fee,
             token: _token,
             balance: 0
         });
 
-        // If the sender its the agent, the escrow its approve
-        if (msg.sender == _agent)
-            approvedEscrows[escrowId] = true;
-
-        emit CreateEscrow(escrowId, _depositant, _retreader, _agent, _fee, _token, _salt);
-    }
-
-    /**
-        @notice Used by the agent to approve an escrow
-
-        @dev The agent of the escrow should be the sender
-
-        @param _escrowId The id of the escrow
-    */
-    function approveEscrow(
-        bytes32 _escrowId
-    ) external {
-        require(msg.sender == escrows[_escrowId].agent, "approveEscrow: The sender should be the agent of the escrow");
-
-        approvedEscrows[_escrowId] = true;
-
-        emit ApproveEscrow(_escrowId);
-    }
-
-    /**
-        @notice Used by the agent to remove approve from an escrow
-
-        @dev The agent of the escrow should be the sender
-
-        @param _escrowId The id of the escrow
-    */
-    function removeApproveEscrow(
-        bytes32 _escrowId
-    ) external {
-        Escrow storage escrow = escrows[_escrowId];
-        require(escrow.agent == msg.sender, "removeApproveEscrow: The sender should be the agent of the escrow");
-        require(escrow.balance == 0, "removeApproveEscrow: The escrow still have amount");
-
-        approvedEscrows[_escrowId] = false;
-
-        emit RemoveApproveEscrow(_escrowId);
+        emit CreateEscrow(escrowId, msg.sender, _depositant, _retreader, _fee, _token, _salt);
     }
 
     /**
         @notice Deposit an amount valuate in escrow token to an escrow
 
         @dev The depositant of the escrow should be the sender
-            The escrow should be approved
 
         @param _escrowId The id of the escrow
         @param _amount The amount to deposit in an escrow, with owner fee
     */
-    function deposit(
-      bytes32 _escrowId,
-      uint256 _amount
-    ) external {
+    function deposit(bytes32 _escrowId, uint256 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == escrow.depositant, "deposit: The sender should be the depositant");
-        require(approvedEscrows[_escrowId], "deposit: The escrow its not approved by the agent");
 
         uint256 toOwner = _feeAmount(_amount, ownerFee);
 
@@ -259,10 +225,7 @@ contract EmytoTokenEscrow is Ownable {
         @param _escrowId The id of the escrow
         @param _amount The base amount
     */
-    function withdrawToRetreader(
-        bytes32 _escrowId,
-        uint256 _amount
-    ) external {
+    function withdrawToRetreader(bytes32 _escrowId, uint256 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
         _withdraw(_escrowId, escrow.depositant, escrow.retreader, _amount);
     }
@@ -275,10 +238,7 @@ contract EmytoTokenEscrow is Ownable {
         @param _escrowId The id of the escrow
         @param _amount The base amount
     */
-    function withdrawToDepositant(
-        bytes32 _escrowId,
-        uint256 _amount
-    ) external {
+    function withdrawToDepositant(bytes32 _escrowId, uint256 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
         _withdraw(_escrowId, escrow.retreader, escrow.depositant, _amount);
     }
@@ -287,26 +247,25 @@ contract EmytoTokenEscrow is Ownable {
         @notice Cancel an escrow and send the balance of the escrow to the depositant address
 
         @dev The sender should be the agent of the escrow
-            The escrow will deleted and remove the approbe
+            The escrow will deleted
 
         @param _escrowId The id of the escrow
     */
-    function cancel(
-        bytes32 _escrowId
-    ) external {
+    function cancel(bytes32 _escrowId) external {
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == escrow.agent, "cancel: The sender should be the agent");
 
         uint256 balance = escrow.balance;
+        address depositant = escrow.depositant;
+        IERC20 token = escrow.token;
+
         // Delete escrow
-        delete (escrow.balance);
-        // Remove approve escrow
-        approvedEscrows[_escrowId] = false;
+        delete escrows[_escrowId];
 
         // Send the tokens to the depositant if the escrow have balance
         if (balance != 0)
             require(
-                escrow.token.safeTransfer(escrow.depositant, balance),
+                token.safeTransfer(depositant, balance),
                 "cancel: Error transfer to the depositant"
             );
 
