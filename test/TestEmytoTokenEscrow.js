@@ -56,11 +56,12 @@ contract('EmytoTokenEscrow', (accounts) => {
     prevOwnerBalance = await tokenEscrow.ownerBalances(erc20.address);
   }
 
-  async function calcId (agent, depositant, retreader, token, salt) {
+  async function calcId (agent, depositant, retreader, fee, token, salt) {
     const id = await tokenEscrow.calculateId(
       agent,
       depositant,
       retreader,
+      fee,
       token,
       salt
     );
@@ -70,6 +71,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       { t: 'address', v: agent },
       { t: 'address', v: depositant },
       { t: 'address', v: retreader },
+      { t: 'uint256', v: fee },
       { t: 'address', v: token },
       { t: 'uint256', v: salt }
     );
@@ -91,7 +93,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       { from: basicEscrow.agent }
     );
 
-    return calcId(basicEscrow.agent, basicEscrow.depositant, basicEscrow.retreader, basicEscrow.token, basicEscrow.salt);
+    return calcId(basicEscrow.agent, basicEscrow.depositant, basicEscrow.retreader, basicEscrow.fee, basicEscrow.token, basicEscrow.salt);
   }
 
   async function deposit (escrowId, amount = WEI) {
@@ -296,7 +298,7 @@ contract('EmytoTokenEscrow', (accounts) => {
   describe('Function createEscrow', function () {
     it('create basic escrow', async () => {
       const salt = random32bn();
-      const id = await calcId(agent, depositant, retreader, erc20.address, salt);
+      const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
 
       const CreateEscrow = await toEvents(
         tokenEscrow.createEscrow(
@@ -327,7 +329,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.balance).to.eq.BN(0);
     });
     it('Try create two escrows with the same id', async function () {
-      await createBasicEscrow();
+      const escrowId = await createBasicEscrow();
 
       await tryCatchRevert(
         () => tokenEscrow.createEscrow(
@@ -341,21 +343,21 @@ contract('EmytoTokenEscrow', (accounts) => {
         'createEscrow: The escrow exists'
       );
 
-
-      basicEscrow.salt = ++salt;
-
-      await tokenEscrow.createEscrow(
-        basicEscrow.depositant,
-        basicEscrow.retreader,
-        basicEscrow.fee,
-        basicEscrow.token,
-        basicEscrow.salt,
-        { from: basicEscrow.agent }
+      // With signature
+      const agentSignature = await web3.eth.sign(escrowId, basicEscrow.agent);
+      await tryCatchRevert(
+        () => tokenEscrow.signedCreateEscrow(
+          basicEscrow.agent,
+          basicEscrow.depositant,
+          basicEscrow.retreader,
+          basicEscrow.fee,
+          basicEscrow.token,
+          basicEscrow.salt,
+          agentSignature,
+          { from: creator }
+        ),
+        'createEscrow: The escrow exists'
       );
-
-      return calcId(basicEscrow.agent, basicEscrow.depositant, basicEscrow.retreader, basicEscrow.token, basicEscrow.salt);
-
-
     });
     it('Try set a higth agent fee(>10%)', async function () {
       await tryCatchRevert(
@@ -379,6 +381,188 @@ contract('EmytoTokenEscrow', (accounts) => {
           { from: creator }
         ),
         'createEscrow: The agent fee should be low or equal than 1000'
+      );
+    });
+  });
+  describe('Function signedCreateEscrow', function () {
+   it('create a signed basic escrow', async () => {
+      const salt = random32bn();
+      const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
+
+      const agentSignature = await web3.eth.sign(id, agent);
+
+      const SignedCreateEscrow = await toEvents(
+        tokenEscrow.signedCreateEscrow(
+          agent,
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          agentSignature,
+          { from: creator }
+        ),
+        'SignedCreateEscrow'
+      );
+
+      assert.equal(SignedCreateEscrow._escrowId, id);
+      assert.equal(SignedCreateEscrow._agentSignature, agentSignature);
+    });
+    it('Try create two escrows with the same id', async function () {
+      const salt = random32bn();
+      const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
+
+      const agentSignature = await web3.eth.sign(id, agent);
+
+      await tokenEscrow.signedCreateEscrow(
+        agent,
+        depositant,
+        retreader,
+        0,
+        erc20.address,
+        salt,
+        agentSignature,
+        { from: creator }
+      );
+
+      await tryCatchRevert(
+        () => tokenEscrow.createEscrow(
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          { from: agent }
+        ),
+        'createEscrow: The escrow exists'
+      );
+
+      await tryCatchRevert(
+        () => tokenEscrow.signedCreateEscrow(
+          agent,
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          agentSignature,
+          { from: creator }
+        ),
+        'createEscrow: The escrow exists'
+      );
+    });
+    it('try create a signed basic escrow with invalid signature', async () => {
+      const salt = random32bn();
+
+      // With wrong id
+      const wrongSignature = await web3.eth.sign([], agent);
+      await tryCatchRevert(
+        () => tokenEscrow.signedCreateEscrow(
+          agent,
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          wrongSignature,
+          { from: creator }
+        ),
+        'signedCreateEscrow: Invalid agent signature'
+      );
+
+      // With wrong agent in calcId
+      const id = await calcId(creator, depositant, retreader, 0, erc20.address, salt);
+      const wrongSignature2 = await web3.eth.sign(id, agent);
+
+      await tryCatchRevert(
+        () => tokenEscrow.signedCreateEscrow(
+          agent,
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          wrongSignature2,
+          { from: creator }
+        ),
+        'signedCreateEscrow: Invalid agent signature'
+      );
+
+      // With wrong signer
+      const id2 = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
+      const wrongSignature3 = await web3.eth.sign(id, creator);
+
+      await tryCatchRevert(
+        () => tokenEscrow.signedCreateEscrow(
+          agent,
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          wrongSignature3,
+          { from: creator }
+        ),
+        'signedCreateEscrow: Invalid agent signature'
+      );
+    });
+    it('try create a signed basic escrow with canceled signature', async () => {
+      const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
+      const canceledSignature = await web3.eth.sign(id, agent);
+
+      await tokenEscrow.cancelSignature(depositant, retreader, 0, erc20.address, salt, { from: agent });
+
+      await tryCatchRevert(
+        () => tokenEscrow.signedCreateEscrow(
+          agent,
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          canceledSignature,
+          { from: creator }
+        ),
+        'signedCreateEscrow: The signature was canceled'
+      );
+    });
+  });
+  describe('Function cancelSignature', function () {
+    it('cancel a signature', async () => {
+      const salt = random32bn();
+      const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
+
+      assert.isFalse(await tokenEscrow.canceledSignatures(id));
+
+      const CancelSignature = await toEvents(
+        tokenEscrow.cancelSignature(
+          depositant,
+          retreader,
+          0,
+          erc20.address,
+          salt,
+          { from: agent }
+        ),
+        'CancelSignature'
+      );
+
+      assert.equal(CancelSignature._escrowId, id);
+      assert.isTrue(await tokenEscrow.canceledSignatures(id));
+    });
+    it('try cancel a signature with exist escrow', async () => {
+      const escrowId = await createBasicEscrow();
+      const signature = await web3.eth.sign(escrowId, agent);
+
+      await tryCatchRevert(
+        () => tokenEscrow.cancelSignature(
+          basicEscrow.depositant,
+          basicEscrow.retreader,
+          basicEscrow.fee,
+          basicEscrow.token,
+          basicEscrow.salt,
+          { from: basicEscrow.agent }
+        ),
+        'cancelSignature: The escrow exists'
       );
     });
   });

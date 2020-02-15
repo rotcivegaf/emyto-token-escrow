@@ -27,6 +27,10 @@ contract EmytoTokenEscrow is Ownable {
         uint256 _salt
     );
 
+    event SignedCreateEscrow(bytes32 _escrowId, bytes _agentSignature);
+
+    event CancelSignature(bytes32 _escrowId);
+
     event Deposit(
         bytes32 _escrowId,
         uint256 _toEscrow,
@@ -66,6 +70,8 @@ contract EmytoTokenEscrow is Ownable {
     // Token to balance of owner
     mapping(address => uint256) public ownerBalances;
     mapping(bytes32 => Escrow) public escrows;
+
+    mapping(bytes32 => bool) public canceledSignatures;
 
     // OnlyOwner functions
 
@@ -115,6 +121,7 @@ contract EmytoTokenEscrow is Ownable {
         address _agent,
         address _depositant,
         address _retreader,
+        uint256 _fee,
         IERC20 _token,
         uint256 _salt
     ) public view returns(bytes32) {
@@ -124,6 +131,7 @@ contract EmytoTokenEscrow is Ownable {
                 _agent,
                 _depositant,
                 _retreader,
+                _fee,
                 _token,
                 _salt
             )
@@ -161,31 +169,67 @@ contract EmytoTokenEscrow is Ownable {
         IERC20 _token,
         uint256 _salt
     ) external returns(bytes32 escrowId) {
-        require(_fee <= MAX_AGENT_FEE, "createEscrow: The agent fee should be low or equal than 1000");
-
-        // Calculate the escrow id
-        escrowId = calculateId(
+        escrowId = _createEscrow(
             msg.sender,
             _depositant,
             _retreader,
+            _fee,
+            _token,
+            _salt
+        );
+    }
+
+    function signedCreateEscrow(
+        address _agent,
+        address _depositant,
+        address _retreader,
+        uint256 _fee,
+        IERC20 _token,
+        uint256 _salt,
+        bytes calldata _agentSignature
+    ) external returns(bytes32 escrowId) {
+        escrowId = _createEscrow(
+            _agent,
+            _depositant,
+            _retreader,
+            _fee,
+            _token,
+            _salt
+        );
+
+        require(!canceledSignatures[escrowId], "signedCreateEscrow: The signature was canceled");
+
+        require(
+            _agent == _ecrecovery(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", escrowId)), _agentSignature),
+            "signedCreateEscrow: Invalid agent signature"
+        );
+
+        emit SignedCreateEscrow(escrowId, _agentSignature);
+    }
+
+    function cancelSignature(
+        address _depositant,
+        address _retreader,
+        uint256 _fee,
+        IERC20 _token,
+        uint256 _salt
+    ) external {
+        // Calculate the escrow id
+        bytes32 escrowId = calculateId(
+            msg.sender,
+            _depositant,
+            _retreader,
+            _fee,
             _token,
             _salt
         );
 
         // Check if the escrow was created
-        require(escrows[escrowId].agent == address(0), "createEscrow: The escrow exists");
+        require(escrows[escrowId].agent == address(0), "cancelSignature: The escrow exists");
 
-        // Add escrow to the escrows array
-        escrows[escrowId] = Escrow({
-            agent: msg.sender,
-            depositant: _depositant,
-            retreader: _retreader,
-            fee: _fee,
-            token: _token,
-            balance: 0
-        });
+        canceledSignatures[escrowId] = true;
 
-        emit CreateEscrow(escrowId, msg.sender, _depositant, _retreader, _fee, _token, _salt);
+        emit CancelSignature(escrowId);
     }
 
     /**
@@ -274,6 +318,42 @@ contract EmytoTokenEscrow is Ownable {
 
     // Internal functions
 
+    function _createEscrow(
+        address _agent,
+        address _depositant,
+        address _retreader,
+        uint256 _fee,
+        IERC20 _token,
+        uint256 _salt
+    ) internal returns(bytes32 escrowId) {
+        require(_fee <= MAX_AGENT_FEE, "createEscrow: The agent fee should be low or equal than 1000");
+
+        // Calculate the escrow id
+        escrowId = calculateId(
+            _agent,
+            _depositant,
+            _retreader,
+            _fee,
+            _token,
+            _salt
+        );
+
+        // Check if the escrow was created
+        require(escrows[escrowId].agent == address(0), "createEscrow: The escrow exists");
+
+        // Add escrow to the escrows array
+        escrows[escrowId] = Escrow({
+            agent: _agent,
+            depositant: _depositant,
+            retreader: _retreader,
+            fee: _fee,
+            token: _token,
+            balance: 0
+        });
+
+        emit CreateEscrow(escrowId, _agent, _depositant, _retreader, _fee, _token, _salt);
+    }
+
     /**
         @notice Withdraw an amount from an escrow and send to _to address
 
@@ -328,5 +408,23 @@ contract EmytoTokenEscrow is Ownable {
         uint256 _fee
     ) internal view returns(uint256) {
         return _amount.mul(_fee).div(BASE);
+    }
+
+    function _ecrecovery(bytes32 _hash, bytes memory _sig) internal pure returns (address) {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly {
+            r := mload(add(_sig, 32))
+            s := mload(add(_sig, 64))
+            v := and(mload(add(_sig, 65)), 255)
+        }
+
+        if (v < 27) {
+            v += 27;
+        }
+
+        return ecrecover(_hash, v, r, s);
     }
 }
