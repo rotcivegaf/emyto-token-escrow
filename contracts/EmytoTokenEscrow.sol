@@ -117,6 +117,20 @@ contract EmytoTokenEscrow is Ownable {
 
     // View functions
 
+    /**
+        @notice Calculate the escrow id
+
+        @dev The id of the escrow its generate with keccak256 function using the parameters of the function
+
+        @param _agent The agent address
+        @param _depositant The depositant address
+        @param _retreader The retreader address
+        @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
+        @param _token The token address
+        @param _salt An entropy value, used to generate the id
+
+        @return The id of the escrow
+    */
     function calculateId(
         address _agent,
         address _depositant,
@@ -155,7 +169,7 @@ contract EmytoTokenEscrow is Ownable {
             The _fee should be low or equal than 1000(10%)
 
         @param _depositant The depositant address
-        @param _retreader The retreader address
+        @param _retreader The retrea    der address
         @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
         @param _token The token address
         @param _salt An entropy value, used to generate the id
@@ -179,6 +193,21 @@ contract EmytoTokenEscrow is Ownable {
         );
     }
 
+    /**
+        @notice Create an escrow, using the signature provided by the agent
+
+        @dev The signature can will be cancel with cancelSignature function
+
+        @param _agent The agent address
+        @param _depositant The depositant address
+        @param _retreader The retrea    der address
+        @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
+        @param _token The token address
+        @param _salt An entropy value, used to generate the id
+        @param _agentSignature The signature provided by the agent
+
+        @return The id of the escrow
+    */
     function signedCreateEscrow(
         address _agent,
         address _depositant,
@@ -207,6 +236,17 @@ contract EmytoTokenEscrow is Ownable {
         emit SignedCreateEscrow(escrowId, _agentSignature);
     }
 
+    /**
+        @notice Cancel a create escrow signature
+
+        @dev The escrow id of the signature should be not exist
+
+        @param _depositant The depositant address
+        @param _retreader The retrea    der address
+        @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
+        @param _token The token address
+        @param _salt An entropy value, used to generate the id
+    */
     function cancelSignature(
         address _depositant,
         address _retreader,
