@@ -275,7 +275,7 @@ contract EmytoTokenEscrow is Ownable {
     /**
         @notice Deposit an amount valuate in escrow token to an escrow
 
-        @dev The depositant of the escrow should be the sender
+        @dev The depositant of the escrow should be the sender and previous need the approve of the ERC20 tokens
 
         @param _escrowId The id of the escrow
         @param _amount The amount to deposit in an escrow, with owner fee
