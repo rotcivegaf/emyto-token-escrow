@@ -34,7 +34,7 @@ contract EmytoTokenEscrow is Ownable {
     event Deposit(
         bytes32 _escrowId,
         uint256 _toEscrow,
-        uint256 _toOwner
+        uint256 _toEmyto
     );
 
     event Withdraw(
@@ -47,9 +47,9 @@ contract EmytoTokenEscrow is Ownable {
 
     event Cancel(bytes32 _escrowId, uint256 _amount);
 
-    event SetOwnerFee(uint256 _fee);
+    event SetEmytoFee(uint256 _fee);
 
-    event OwnerWithdraw(IERC20 _token, address _to, uint256 _amount);
+    event EmytoWithdraw(IERC20 _token, address _to, uint256 _amount);
 
     struct Escrow {
         address agent;
@@ -63,12 +63,12 @@ contract EmytoTokenEscrow is Ownable {
     // 10000 ==  100%
     //   505 == 5.05%
     uint256 public BASE = 10000;
-    uint256 private MAX_OWNER_FEE = 5000;
+    uint256 private MAX_EMYTO_FEE = 50;
     uint256 private MAX_AGENT_FEE = 1000;
-    uint256 public ownerFee;
+    uint256 public emytoFee;
 
-    // Token to balance of owner
-    mapping(address => uint256) public ownerBalances;
+    // Token to balance of emyto
+    mapping(address => uint256) public emytoBalances;
     mapping(bytes32 => Escrow) public escrows;
 
     mapping(bytes32 => bool) public canceledSignatures;
@@ -76,17 +76,17 @@ contract EmytoTokenEscrow is Ownable {
     // OnlyOwner functions
 
     /**
-        @notice Set the owner fee
+        @notice Set the emyto fee
 
         @dev Only the owner of the contract can send this transaction
 
-        @param _ownerFee The new owner fee
+        @param _fee The new emyto fee
     */
-    function setOwnerFee(uint256 _ownerFee) external onlyOwner {
-        require(_ownerFee <= MAX_OWNER_FEE, "setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE");
-        ownerFee = _ownerFee;
+    function setEmytoFee(uint256 _fee) external onlyOwner {
+        require(_fee <= MAX_EMYTO_FEE, "setEmytoFee: The emyto fee should be low or equal than the MAX_EMYTO_FEE");
+        emytoFee = _fee;
 
-        emit SetOwnerFee(_ownerFee);
+        emit SetEmytoFee(_fee);
     }
 
     /**
@@ -98,21 +98,21 @@ contract EmytoTokenEscrow is Ownable {
         @param _to The address destination of the tokens
         @param _amount The amount to withdraw
     */
-    function ownerWithdraw(
+    function emytoWithdraw(
         IERC20 _token,
         address _to,
         uint256 _amount
     ) external onlyOwner {
-        require(_to != address(0), "ownerWithdraw: The to address 0 its invalid");
+        require(_to != address(0), "emytoWithdraw: The to address 0 its invalid");
 
-        ownerBalances[address(_token)] = ownerBalances[address(_token)].sub(_amount);
+        emytoBalances[address(_token)] = emytoBalances[address(_token)].sub(_amount);
 
         require(
             _token.safeTransfer(_to, _amount),
-            "ownerWithdraw: Error transfer to the owner"
+            "emytoWithdraw: Error transfer to emyto"
         );
 
-        emit OwnerWithdraw(_token, _to, _amount);
+        emit EmytoWithdraw(_token, _to, _amount);
     }
 
     // View functions
@@ -278,13 +278,13 @@ contract EmytoTokenEscrow is Ownable {
         @dev The depositant of the escrow should be the sender and previous need the approve of the ERC20 tokens
 
         @param _escrowId The id of the escrow
-        @param _amount The amount to deposit in an escrow, with owner fee
+        @param _amount The amount to deposit in an escrow, with emyto fee amount
     */
     function deposit(bytes32 _escrowId, uint256 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
         require(msg.sender == escrow.depositant, "deposit: The sender should be the depositant");
 
-        uint256 toOwner = _feeAmount(_amount, ownerFee);
+        uint256 toEmyto = _feeAmount(_amount, emytoFee);
 
         // Transfer the tokens
         require(
@@ -292,13 +292,13 @@ contract EmytoTokenEscrow is Ownable {
             "deposit: Error deposit tokens"
         );
 
-        // Assign the fee amount to the owner
-        ownerBalances[address(escrow.token)] += toOwner;
-        // Assign the deposit amount to the escrow, subtracting the fee owner amount
-        uint256 toEscrow = _amount.sub(toOwner);
+        // Assign the fee amount to emyto
+        emytoBalances[address(escrow.token)] += toEmyto;
+        // Assign the deposit amount to the escrow, subtracting the fee emyto amount
+        uint256 toEscrow = _amount.sub(toEmyto);
         escrow.balance += toEscrow;
 
-        emit Deposit(_escrowId, toEscrow, toOwner);
+        emit Deposit(_escrowId, toEscrow, toEmyto);
     }
 
     /**

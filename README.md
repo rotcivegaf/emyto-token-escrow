@@ -3,19 +3,25 @@
 Un escrow tiene 3 actores:
 
 - El agente: Es el encargado de desempatar
-- El depositante: Es el encargado de depositar la garantia, una vez depositada, enviarla al depositario o esperar a que el depositario la devuelva
-- El depositario: Es el encargado de devolver la garantia depositada o esperar a recibirla
+- El depositante: Es el encargado de depositar la garantía, una vez depositada, enviarla al depositario o esperar a que el depositario la devuelva
+- El depositario: Es el encargado de devolver la garantía depositada o esperar a recibirla
 
-Ademas tiene:
+Además tiene:
 
-- Un identificador unico
-- Un fee destinado al agente una vez que la garantia es retirada
+- Un identificador único
+- Una comisión destinada al agente una vez que la garantía es retirada
 - Un address que hacer referencia al token al que esta valuado el escrow
 - Un balance que corresponde a la cantidad de tokens que tiene el escrow
 
-Los porcentajes del contrato estan calculados en base 10000, esto quiere decir que:
+Emyto descuenta un 0.25% de comisión en cada deposito de garantía en carácter de costo por el desarrollo del contrato y la plataforma
 
-- 10000 correspode a un 100%
+Esta comisión puede cambiar variando de un 0.5% hasta un 0%, dejando gratuito su uso
+
+Esta garantía puede ser devuelta si el escrow tiene un token sin contenido económico intrínseco por ejemplo representativos de una hipoteca, equity tokens, etc. que queden en poder de Emyto, puede comunicarse vía mail y recuperarlos (a cambio del valor representado en otro token)
+
+Los porcentajes del contrato están calculados en base 10000, esto quiere decir que:
+
+- 10000 corresponde a un 100%
 - 1 corresponde a un 0.01%
 - 12345 corresponde a un 123.45%
 
@@ -25,118 +31,117 @@ Existen 2 tipos de funciones:
 
 ### createEscrow(address _depositant, address _retreader, uint256 _fee, IERC20 _token, uint256 _salt)
 
-Junto con la funcion signedCreateEscrow es el primer paso para crear un escrow
+Junto con la función signedCreateEscrow es el primer paso para crear un escrow
 
-Asigna como agente del escrow al que envia esta transaccion
+Asigna como agente del escrow al que envía esta transacción
 
-Crea un escrow con los parametros enviados
+Crea un escrow con los parámetros enviados
 
 - El depositante
 - El depositario
-- El fee
+- El porcentaje de comisión dirigida al agente
 - El token
 - El salt que es una especie de pimienta que se le agrega al el identificador del escrow
 
-Una vez creado al escrow se le asigna un identificados usando la funcion calculateId
+Una vez creado al escrow se le asigna un identificados usando la función calculateId
 
-Como maximo el agente de un escrow puede perdir un 10% de fee
+Como máximo el agente de un escrow puede pedir un 10% de comisión
 
 ### signedCreateEscrow(address _agent, address _depositant, address _retreader, uint256 _fee, IERC20 _token, uint256 _salt, bytes calldata _agentSignature)
 
-Igual que la funcion createEscrow, pero puede ser enviada por otra direccion
+Igual que la función createEscrow, pero puede ser enviada por otra dirección
 
-El agente puede entregar su firma, autorizando a otra direccion para crear el escrow por el
+El agente puede entregar su firma, autorizando a otra dirección para crear el escrow por el
 
-El agente puede cancelar esta firma, siempre y cuando el escrow no halla sido creado
+El agente puede cancelar esta firma, siempre y cuando el escrow no haya sido creado
 
-Ademas de los parametros de create escrow se necesitan
+Además de los parámetros de create escrow se necesitan
 
-- La direccion del agente
+- La dirección del agente
 - La firma del agente
 
 ### cancelSignature(address _depositant, address _retreader, uint256 _fee, IERC20 _token, uint256 _salt)
 
-Cancela una firma de un agente, tomando como parametros:
+Cancela una firma de un agente, tomando como parámetros:
 
 - El depositante
 - El depositario
-- El fee
+- La comisión
 - El token
 - El salt
 
-## Depositar garantia
+## Depositar garantía
 
-Para depositar la garantia el escrow tiene que haber sido creado
+Para depositar la garantía el escrow tiene que haber sido creado
 
-Solo el depositante del escrow puede enviar esta transaccion y previamente tiene que haber aprobado al contrato para que maneje el monto a depositar
+Solo el depositante del escrow puede enviar esta transacción y previamente tiene que haber aprobado al contrato para que maneje el monto a depositar
 
 ### deposit(bytes32 _escrowId, uint256 _amount)
 
-La funcion deposit es la encargada de depositar la garantia y toma como parametros:
+La función deposit es la encargada de depositar la garantía y toma como parámetros:
 
 - El identificador del escrow
-- El monto sustraer del depositante para depositarlo en el escrow, restando el fee del dueno
+- El monto sustraer del depositante para depositarlo en el escrow, restando la comisión de Emyto
 
-Al depositar la garantia el dueno del contrato cobra un fee que es asignado con la funcion setOwnerFee
+Al depositar la garantía Emyto cobra una comisión que es asignada con la función setEmytoFee
 
-Al monto depositado se le descontara este fee, con lo cual el escrow quedara con:
+Al monto depositado se le descontara esta comisión, con lo cual el escrow quedara con:
 
 ```
-montoParaDueno = montoASustraer * feeDueno
-montoDepositado = montoASustraer - montoParaDueno
+montoParaEmyto = montoASustraer * comisiónEmyto
+montoDepositado = montoASustraer - montoParaEmyto
 nuevoBalance = balanceAnterior + montoDepositado
 ```
 
-Con el fee valuado en %, por ejemplo:
+Con la comisión valuada en %, por ejemplo:
 
 ```
 balanceAnterior = 1000 Token
 montoASustraer = 78837 Token
-feeDueno = 0.05%
+comisiónEmyto = 0.05%
 
-montoParaDueno = 78837 Token * 0.05 = 3941 Token
+montoParaEmyto = 78837 Token * 0.05 = 3941 Token
 montoDepositado = 78837 Token - 3941 Token = 74896 Token
 nuevoBalance = 1000 Token + 74896 Token = 75896 Token
 ```
 
-\* Recordar que son numeros enteros y que siempre se redonde hacia abajo
+\* Recordar que son números enteros y que siempre se redondea hacia abajo
 
-## Retirar garantia
+## Retirar garantía
 
-Una vez depositada la garantia existen dos caminos, uno que la garantia sea devuelta al depositante y otra que sea enviada el depositario
+Una vez depositada la garantía existen dos caminos, uno que la garantía sea devuelta al depositante y otra que sea enviada el depositario
 
-Al retirar garantia el agente del escrow cobra un fee puesto en la creacion del escrow, cabe recordar que el fee puede ser gratuito(0)
+Al retirar garantía el agente del escrow cobra una comisión puesta en la creación del escrow, cabe recordar que la comisión puede ser gratuita(0)
 
-Al monto a retirar se le descontara este fee, con lo cual el escrow quedara con:
-
+Al monto a retirar se le descontara esta comisión, con lo cual el escrow quedara con:
 
 ```
-montoParaAgente = montoARetirar * feeEscrow
+montoParaAgente = montoARetirar * comisiónEscrow
 montoRetirado = montoARetirar + montoParaAgente
 nuevoBalance = balanceAnterior - montoRetirado
 ```
 
-con el fee valuado en %, por ejemplo:
+Con la comisión valuada en %, por ejemplo:
 
 ```
 balanceAnterior = 100000 Token
 montoARetirar = 78837 Token
-feeEscrow = 0.05%
+comisiónEscrow = 0.05%
 
 montoParaAgente = 78837 Token * 0.05 = 3941 Token
 montoRetirado = 78837 Token + 3941 Token = 74896 Token
 nuevoBalance = 100000 Token - 74896 Token = 75896 Token
 ```
 
-\* Recordar que son numeros enteros y que siempre se redonde hacia abajo
+\* Recordar que son números enteros y que siempre se redondea hacia abajo
 
 Para esto existen 2 funciones:
 
 ### withdrawToRetreader(bytes32 _escrowId, uint256 _amount)
 
-Esta funcion es encargada de enviar la garantia al depositario
+Esta función es encargada de enviar la garantía al depositario
 
-Puede ser enviada por el agente o el depositante del escrow y toma como parametros:
+Puede ser enviada por el agente o el depositante del escrow y toma como parámetros:
 
 - El identificador del escrow
 - El monto a enviar
@@ -144,9 +149,9 @@ Puede ser enviada por el agente o el depositante del escrow y toma como parametr
 
 ### withdrawToDepositant(bytes32 _escrowId, uint256 _amount)
 
-Esta funcion es encargada de devolver la garantia al depositante
+Esta función es encargada de devolver la garantía al depositante
 
-Puede ser enviada por el agente o el depositario del escrow y toma como parametros:
+Puede ser enviada por el agente o el depositario del escrow y toma como parámetros:
 
 - El identificador del escrow
 - El monto a devolver
@@ -157,46 +162,46 @@ Una vez creado el escrow puede ser cancelado
 
 ### cancel(bytes32 _escrowId)
 
-Toma el identificador del escrow como parametro
+Toma el identificador del escrow como parámetro
 
-Esta transaccion solo puede ser enviada por el agente del escrow
+Esta transacción solo puede ser enviada por el agente del escrow
 
-Borra el escrow del storage y envia el balance de este hacia el depositante
+Borra el escrow del storage y envía el balance de este hacia el depositante
 
-## funciones de dueno
+## Funciones de dueño
 
-### setOwnerFee(uint256 _ownerFee)
+### setEmytoFee(uint256 _fee)
 
-Asigna el fee del dueno y solo el dueno del contrato puede enviar esta transaccion
+Asigna la comisión de Emyto y solo Emyto puede enviar esta transacción
 
-Como maximo el dueno del contrato puede perdir un 50% de fee
+Como máximo Emyto puede pedir un 0.5% de comisión, y 0% como mínimo
 
-### ownerWithdraw(IERC20 _token, address _to, uint256 _amount)
+### emytoWithdraw(IERC20 _token, address _to, uint256 _amount)
 
-Retira los fondos acumulados obtenidos por el fee del dueno y solo el dueno del contrato puede enviar esta transaccion
+Retira los fondos acumulados obtenidos por Emyto y solo Emyto puede enviar esta transacción
 
-Tiene como parametros:
+Tiene como parámetros:
 
 - El address del token del cual se realizara el retiro de fondos
-- Un address destino, donde iran estos fondos
+- Un address destino, donde irán estos fondos
 - El monto a retirar
 
-## funcion para calcular el identificador del escrow
+## función para calcular el identificador del escrow
 
-Es una funcion de ayuda para calcular el id de un futuro o actual escrow
+Es una función de ayuda para calcular el id de un futuro o actual escrow
 
-Toma como parametros los mismos que la funcion createEscrow, agregando
+Toma como parámetros los mismos que la función createEscrow, agregando
 
-- La direccion del agente
+- La dirección del agente
 
-Esta funcion crea un identificador usando la funcion keccak256, usando como parametros de esta:
+Esta función crea un identificador usando la función keccak256, usando como parámetros de esta:
 
-- La direccion del contrato de escrow
-- La direccion de agente
-- La direccion de depositante
-- La direccion de depositario
-- El fee
-- La direccion del token
+- La dirección del contrato de escrow
+- La dirección de agente
+- La dirección de depositante
+- La dirección de depositario
+- La comisión
+- La dirección del token
 - El salt
 
 ## Running the tests

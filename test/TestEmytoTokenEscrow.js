@@ -30,7 +30,7 @@ contract('EmytoTokenEscrow', (accounts) => {
   let prevBalAgent = 0;
   let prevBalEscrow = 0;
   let prevBalTokenEscrow = 0;
-  let prevOwnerBalance = 0;
+  let prevEmytoBalance = 0;
 
   let tokenEscrow;
   let erc20;
@@ -53,7 +53,7 @@ contract('EmytoTokenEscrow', (accounts) => {
     const escrow = await tokenEscrow.escrows(escrowId);
     prevBalEscrow = escrow.balance;
     prevBalTokenEscrow = await erc20.balanceOf(tokenEscrow.address);
-    prevOwnerBalance = await tokenEscrow.ownerBalances(erc20.address);
+    prevEmytoBalance = await tokenEscrow.emytoBalances(erc20.address);
   }
 
   async function calcId (agent, depositant, retreader, fee, token, salt) {
@@ -105,7 +105,7 @@ contract('EmytoTokenEscrow', (accounts) => {
 
   before('Deploy contracts', async function () {
     tokenEscrow = await EmytoTokenEscrow.new({ from: owner });
-    await tokenEscrow.setOwnerFee(500, { from: owner });
+    await tokenEscrow.setEmytoFee(50, { from: owner });
 
     erc20 = await TestToken.new({ from: owner });
 
@@ -122,9 +122,9 @@ contract('EmytoTokenEscrow', (accounts) => {
   });
 
   describe('Functions onlyOwner', async function () {
-    it('Try set owner fee without being the owner', async function () {
+    it('Try set emyto fee without being the owner', async function () {
       await tryCatchRevert(
-        () => tokenEscrow.setOwnerFee(
+        () => tokenEscrow.setEmytoFee(
           0,
           { from: creator }
         ),
@@ -133,7 +133,7 @@ contract('EmytoTokenEscrow', (accounts) => {
     });
     it('Try withdraw token amount without be the owner', async function () {
       await tryCatchRevert(
-        () => tokenEscrow.ownerWithdraw(
+        () => tokenEscrow.emytoWithdraw(
           address0x,
           address0x,
           0,
@@ -143,88 +143,88 @@ contract('EmytoTokenEscrow', (accounts) => {
       );
     });
   });
-  describe('Function setOwnerFee', function () {
-    it('set 10% owner fee', async () => {
-      const tenPorcent = bn(1000);
+  describe('Function setEmytoFee', function () {
+    it('set 0% emyto fee', async () => {
+      const fee = bn(0);
 
-      const SetOwnerFee = await toEvents(
-        tokenEscrow.setOwnerFee(
-          tenPorcent,
+      const SetEmytoFee = await toEvents(
+        tokenEscrow.setEmytoFee(
+          fee,
           { from: owner }
         ),
-        'SetOwnerFee'
+        'SetEmytoFee'
       );
 
-      expect(SetOwnerFee._fee).to.eq.BN(tenPorcent);
+      expect(SetEmytoFee._fee).to.eq.BN(fee);
 
-      expect(await tokenEscrow.ownerFee()).to.eq.BN(tenPorcent);
+      expect(await tokenEscrow.emytoFee()).to.eq.BN(fee);
     });
-    it('set 50% owner fee', async () => {
-      const fiftyPorcent = bn(5000);
+    it('set 0.5% emyto fee', async () => {
+      const fee = bn(50);
 
-      const SetOwnerFee = await toEvents(
-        tokenEscrow.setOwnerFee(
-          fiftyPorcent,
+      const SetEmytoFee = await toEvents(
+        tokenEscrow.setEmytoFee(
+          fee,
           { from: owner }
         ),
-        'SetOwnerFee'
+        'SetEmytoFee'
       );
 
-      expect(SetOwnerFee._fee).to.eq.BN(fiftyPorcent);
+      expect(SetEmytoFee._fee).to.eq.BN(fee);
 
-      expect(await tokenEscrow.ownerFee()).to.eq.BN(fiftyPorcent);
+      expect(await tokenEscrow.emytoFee()).to.eq.BN(fee);
     });
-    it('Try set a higth owner fee(>50%)', async function () {
+    it('Try set a higth emyto fee(>0.5%)', async function () {
       await tryCatchRevert(
-        () => tokenEscrow.setOwnerFee(
-          5001,
+        () => tokenEscrow.setEmytoFee(
+          51,
           { from: owner }
         ),
-        'setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE'
+        'setEmytoFee: The emyto fee should be low or equal than the MAX_EMYTO_FEE'
       );
 
       await tryCatchRevert(
-        () => tokenEscrow.setOwnerFee(
+        () => tokenEscrow.setEmytoFee(
           maxUint(256),
           { from: owner }
         ),
-        'setOwnerFee: The owner fee should be low or equal than the MAX_OWNER_FEE'
+        'setEmytoFee: The emyto fee should be low or equal than the MAX_EMYTO_FEE'
       );
     });
   });
-  describe('Function ownerWithdraw', function () {
-    it('Withdraw all balance from owner', async () => {
+  describe('Function emytoWithdraw', function () {
+    it('Withdraw all balance from emyto', async () => {
       const escrowId = await createBasicEscrow();
       await deposit(escrowId);
 
-      const ownerFee = await tokenEscrow.ownerFee();
-      const toOwner = WEI.mul(ownerFee).div(BASE);
+      const emytoFee = await tokenEscrow.emytoFee();
+      const toEmyto = WEI.mul(emytoFee).div(BASE);
 
       await saveBalances(escrowId);
 
-      const OwnerWithdraw = await toEvents(
-        tokenEscrow.ownerWithdraw(
+      const EmytoWithdraw = await toEvents(
+        tokenEscrow.emytoWithdraw(
           erc20.address,
           creator,
-          toOwner,
+          toEmyto,
           { from: owner }
         ),
-        'OwnerWithdraw'
+        'EmytoWithdraw'
       );
 
-      assert.equal(OwnerWithdraw._token, erc20.address);
-      assert.equal(OwnerWithdraw._to, creator);
-      expect(OwnerWithdraw._amount).to.eq.BN(toOwner);
+      assert.equal(EmytoWithdraw._token, erc20.address);
+      assert.equal(EmytoWithdraw._to, creator);
+      expect(EmytoWithdraw._amount).to.eq.BN(toEmyto);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance.sub(toOwner));
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance.sub(toEmyto));
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
-      expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator.add(toOwner));
+      expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator.add(toEmyto));
       expect(await erc20.balanceOf(depositant)).to.eq.BN(prevBalDepositant);
       expect(await erc20.balanceOf(retreader)).to.eq.BN(prevBalRetreader);
       expect(await erc20.balanceOf(agent)).to.eq.BN(prevBalAgent);
 
-      expect(await erc20.balanceOf(tokenEscrow.address)).to.eq.BN(prevBalTokenEscrow.sub(toOwner));
+      expect(await erc20.balanceOf(tokenEscrow.address)).to.eq.BN(prevBalTokenEscrow.sub(toEmyto));
     });
     it('Try withdraw a higth amount', async () => {
       const escrowId = await createBasicEscrow();
@@ -233,7 +233,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       await saveBalances(escrowId);
 
       await tryCatchRevert(
-        () => tokenEscrow.ownerWithdraw(
+        () => tokenEscrow.emytoWithdraw(
           erc20.address,
           creator,
           maxUint(256),
@@ -244,13 +244,13 @@ contract('EmytoTokenEscrow', (accounts) => {
     });
     it('Try withdraw to address 0', async function () {
       await tryCatchRevert(
-        () => tokenEscrow.ownerWithdraw(
+        () => tokenEscrow.emytoWithdraw(
           erc20.address,
           address0x,
           0,
           { from: owner }
         ),
-        'ownerWithdraw: The to address 0 its invalid'
+        'emytoWithdraw: The to address 0 its invalid'
       );
     });
   });
@@ -584,11 +584,11 @@ contract('EmytoTokenEscrow', (accounts) => {
       );
 
       assert.equal(Deposit._escrowId, escrowId);
-      const ownerFee = await tokenEscrow.ownerFee();
-      const toOwner = amount.mul(ownerFee).div(BASE);
-      const toEscrow = amount.sub(toOwner);
+      const emytoFee = await tokenEscrow.emytoFee();
+      const toEmyto = amount.mul(emytoFee).div(BASE);
+      const toEscrow = amount.sub(toEmyto);
       expect(Deposit._toEscrow).to.eq.BN(toEscrow);
-      expect(Deposit._toOwner).to.eq.BN(toOwner);
+      expect(Deposit._toEmyto).to.eq.BN(toEmyto);
 
       const escrow = await tokenEscrow.escrows(escrowId);
       assert.equal(escrow.depositant, depositant);
@@ -597,7 +597,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance.add(toOwner));
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance.add(toEmyto));
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -625,11 +625,11 @@ contract('EmytoTokenEscrow', (accounts) => {
       );
 
       assert.equal(Deposit._escrowId, escrowId);
-      const ownerFee = await tokenEscrow.ownerFee();
-      const toOwner = amount.mul(ownerFee).div(BASE);
-      const toEscrow = amount.sub(toOwner);
+      const emytoFee = await tokenEscrow.emytoFee();
+      const toEmyto = amount.mul(emytoFee).div(BASE);
+      const toEscrow = amount.sub(toEmyto);
       expect(Deposit._toEscrow).to.eq.BN(toEscrow);
-      expect(Deposit._toOwner).to.eq.BN(toOwner);
+      expect(Deposit._toEmyto).to.eq.BN(toEmyto);
 
       const escrow = await tokenEscrow.escrows(escrowId);
       assert.equal(escrow.depositant, depositant);
@@ -638,7 +638,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -666,11 +666,11 @@ contract('EmytoTokenEscrow', (accounts) => {
       );
 
       assert.equal(Deposit._escrowId, escrowId);
-      const ownerFee = await tokenEscrow.ownerFee();
-      const toOwner = amount.mul(ownerFee).div(BASE);
-      const toEscrow = amount.sub(toOwner);
+      const emytoFee = await tokenEscrow.emytoFee();
+      const toEmyto = amount.mul(emytoFee).div(BASE);
+      const toEscrow = amount.sub(toEmyto);
       expect(Deposit._toEscrow).to.eq.BN(toEscrow);
-      expect(Deposit._toOwner).to.eq.BN(toOwner);
+      expect(Deposit._toEmyto).to.eq.BN(toEmyto);
 
       const escrow = await tokenEscrow.escrows(escrowId);
       assert.equal(escrow.depositant, depositant);
@@ -679,7 +679,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance.add(toOwner));
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance.add(toEmyto));
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -735,7 +735,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -777,7 +777,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -819,7 +819,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -884,7 +884,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -926,7 +926,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -968,7 +968,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(500);
       assert.equal(escrow.token, erc20.address);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
@@ -1026,7 +1026,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       expect(escrow.fee).to.eq.BN(0);
       assert.equal(escrow.token, address0x);
 
-      expect(await tokenEscrow.ownerBalances(erc20.address)).to.eq.BN(prevOwnerBalance);
+      expect(await tokenEscrow.emytoBalances(erc20.address)).to.eq.BN(prevEmytoBalance);
 
       expect(await erc20.balanceOf(owner)).to.eq.BN(prevBalOwner);
       expect(await erc20.balanceOf(creator)).to.eq.BN(prevBalCreator);
