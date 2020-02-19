@@ -60,15 +60,11 @@ Además de los parámetros de create escrow se necesitan:
 - La dirección del agente
 - La firma del agente
 
-### cancelSignature(address _depositant, address _retreader, uint256 _fee, IERC20 _token, uint256 _salt)
+### cancelSignature(bytes calldata _agentSignature)
 
 Cancela una firma de un agente, tomando como parámetros:
 
-- El depositante
-- El depositario
-- La comisión
-- El token
-- El salt
+- La firma
 
 ## Depositar garantía
 

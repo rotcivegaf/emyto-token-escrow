@@ -29,7 +29,7 @@ contract EmytoTokenEscrow is Ownable {
 
     event SignedCreateEscrow(bytes32 _escrowId, bytes _agentSignature);
 
-    event CancelSignature(bytes32 _escrowId);
+    event CancelSignature(bytes _agentSignature);
 
     event Deposit(
         bytes32 _escrowId,
@@ -71,7 +71,7 @@ contract EmytoTokenEscrow is Ownable {
     mapping(address => uint256) public emytoBalances;
     mapping(bytes32 => Escrow) public escrows;
 
-    mapping(bytes32 => bool) public canceledSignatures;
+    mapping (address => mapping (bytes => bool)) public canceledSignatures;
 
     // OnlyOwner functions
 
@@ -226,7 +226,7 @@ contract EmytoTokenEscrow is Ownable {
             _salt
         );
 
-        require(!canceledSignatures[escrowId], "signedCreateEscrow: The signature was canceled");
+        require(!canceledSignatures[_agent][_agentSignature], "signedCreateEscrow: The signature was canceled");
 
         require(
             _agent == _ecrecovery(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", escrowId)), _agentSignature),
@@ -239,37 +239,12 @@ contract EmytoTokenEscrow is Ownable {
     /**
         @notice Cancel a create escrow signature
 
-        @dev The escrow id of the signature should be not exist
-
-        @param _depositant The depositant address
-        @param _retreader The retrea    der address
-        @param _fee The fee percentage(calculate in BASE), this fee will sent to the agent when the escrow is withdrawn
-        @param _token The token address
-        @param _salt An entropy value, used to generate the id
+        @param _agentSignature The signature provided by the agent
     */
-    function cancelSignature(
-        address _depositant,
-        address _retreader,
-        uint256 _fee,
-        IERC20 _token,
-        uint256 _salt
-    ) external {
-        // Calculate the escrow id
-        bytes32 escrowId = calculateId(
-            msg.sender,
-            _depositant,
-            _retreader,
-            _fee,
-            _token,
-            _salt
-        );
+    function cancelSignature(bytes calldata _agentSignature) external {
+        canceledSignatures[msg.sender][_agentSignature] = true;
 
-        // Check if the escrow was created
-        require(escrows[escrowId].agent == address(0), "cancelSignature: The escrow exists");
-
-        canceledSignatures[escrowId] = true;
-
-        emit CancelSignature(escrowId);
+        emit CancelSignature(_agentSignature);
     }
 
     /**

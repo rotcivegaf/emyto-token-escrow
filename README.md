@@ -60,15 +60,11 @@ In addition to create escrow parameters, you need:
 - The agent address
 - The signature of the agent
 
-### cancelSignature(address _depositant, address _retreader, uint256 _fee, IERC20 _token, uint256 _salt)
+### cancelSignature(bytes calldata _agentSignature)
 
 Cancel an agent signature, taking as parameters:
 
-- The depositant
-- The retreader
-- The commission
-- The token
-- The salt
+- The signature
 
 ## Deposit guarantee
 

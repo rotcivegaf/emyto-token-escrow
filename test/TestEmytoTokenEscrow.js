@@ -510,7 +510,7 @@ contract('EmytoTokenEscrow', (accounts) => {
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
       const canceledSignature = await web3.eth.sign(id, agent);
 
-      await tokenEscrow.cancelSignature(depositant, retreader, 0, erc20.address, salt, { from: agent });
+      await tokenEscrow.cancelSignature(canceledSignature, { from: agent });
 
       await tryCatchRevert(
         () => tokenEscrow.signedCreateEscrow(
@@ -532,38 +532,20 @@ contract('EmytoTokenEscrow', (accounts) => {
       const salt = random32bn();
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
 
-      assert.isFalse(await tokenEscrow.canceledSignatures(id));
+      const agentSignature = await web3.eth.sign(id, agent);
+
+      assert.isFalse(await tokenEscrow.canceledSignatures(agent, agentSignature));
 
       const CancelSignature = await toEvents(
         tokenEscrow.cancelSignature(
-          depositant,
-          retreader,
-          0,
-          erc20.address,
-          salt,
+          agentSignature,
           { from: agent }
         ),
         'CancelSignature'
       );
 
-      assert.equal(CancelSignature._escrowId, id);
-      assert.isTrue(await tokenEscrow.canceledSignatures(id));
-    });
-    it('try cancel a signature with exist escrow', async () => {
-      const escrowId = await createBasicEscrow();
-      const signature = await web3.eth.sign(escrowId, agent);
-
-      await tryCatchRevert(
-        () => tokenEscrow.cancelSignature(
-          basicEscrow.depositant,
-          basicEscrow.retreader,
-          basicEscrow.fee,
-          basicEscrow.token,
-          basicEscrow.salt,
-          { from: basicEscrow.agent }
-        ),
-        'cancelSignature: The escrow exists'
-      );
+      assert.equal(CancelSignature._agentSignature, agentSignature);
+      assert.isTrue(await tokenEscrow.canceledSignatures(agent, agentSignature));
     });
   });
   describe('Function deposit', function () {
