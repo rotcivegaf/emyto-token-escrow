@@ -155,15 +155,15 @@ contract EmytoTokenEscrow is Ownable {
     // External functions
 
     /**
-        @notice Create an escrow, previous need the approve of the ERC20 tokens
+        @notice Create an ERC20 escrow
             Fee: The ratio is expressed in order of BASE, for example
                 1% is 100
                 50.00% is 5000
                 23.45% is 2345
 
         @dev The id of the escrow its generate with keccak256 function,
-            using the address of this contract, the _depositant, the _retreader,
-            the sender, the _token and the salt number
+            using the address of this contract, the sender(agent), the _depositant,
+            the _retreader, the _fee, the _token and the salt number
 
             The agent will be the sender of the transaction
             The _fee should be low or equal than 1000(10%)
@@ -250,7 +250,7 @@ contract EmytoTokenEscrow is Ownable {
     /**
         @notice Deposit an amount valuate in escrow token to an escrow
 
-        @dev The depositant of the escrow should be the sender and previous need the approve of the ERC20 tokens
+        @dev The depositant of the escrow should be the sender, previous need the approve of the ERC20 tokens
 
         @param _escrowId The id of the escrow
         @param _amount The amount to deposit in an escrow, with emyto fee amount
