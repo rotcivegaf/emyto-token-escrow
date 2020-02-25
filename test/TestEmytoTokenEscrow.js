@@ -385,7 +385,7 @@ contract('EmytoTokenEscrow', (accounts) => {
     });
   });
   describe('Function signedCreateEscrow', function () {
-   it('create a signed basic escrow', async () => {
+    it('create a signed basic escrow', async () => {
       const salt = random32bn();
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
 
@@ -489,7 +489,6 @@ contract('EmytoTokenEscrow', (accounts) => {
       );
 
       // With wrong signer
-      const id2 = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
       const wrongSignature3 = await web3.eth.sign(id, creator);
 
       await tryCatchRevert(

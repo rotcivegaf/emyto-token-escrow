@@ -3,12 +3,10 @@ const TestERC721Token = artifacts.require('TestERC721Token');
 const EmytoERC721Escrow = artifacts.require('EmytoERC721Escrow');
 
 const {
-  bn,
   expect,
   toEvents,
   tryCatchRevert,
   address0x,
-  maxUint,
   random32,
   random32bn,
 } = require('./Helper.js');
@@ -305,7 +303,6 @@ contract('EmytoERC721Escrow', (accounts) => {
       );
 
       // With wrong signer
-      const id2 = await calcId(agent, depositant, retreader, erc721.address, tokenId, salt);
       const wrongSignature3 = await web3.eth.sign(id, creator);
 
       await tryCatchRevert(

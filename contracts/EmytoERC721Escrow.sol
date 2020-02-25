@@ -4,7 +4,7 @@ import "./interfaces/IERC721.sol";
 
 
 /**
-    @title Emyto token escrow
+    @title Emyto ERC721 token escrow
     @author Victor Fage <victorfage@gmail.com>
 */
 contract EmytoERC721Escrow {
@@ -56,8 +56,8 @@ contract EmytoERC721Escrow {
         @param _agent The agent address
         @param _depositant The depositant address
         @param _retreader The retreader address
-        @param _token The token address
-        @param _tokenId The token id
+        @param _token The ERC721 token address
+        @param _tokenId The ERC721 token id
         @param _salt An entropy value, used to generate the id
 
         @return The id of the escrow
@@ -71,15 +71,15 @@ contract EmytoERC721Escrow {
         uint256 _salt
     ) public view returns(bytes32) {
         return keccak256(
-          abi.encodePacked(
-            address(this),
-            _agent,
-            _depositant,
-            _retreader,
-            _token,
-            _tokenId,
-            _salt
-          )
+            abi.encodePacked(
+                address(this),
+                _agent,
+                _depositant,
+                _retreader,
+                _token,
+                _tokenId,
+                _salt
+            )
         );
     }
 
@@ -96,8 +96,8 @@ contract EmytoERC721Escrow {
 
         @param _depositant The depositant address
         @param _retreader The retreader address
-        @param _token The token address
-        @param _tokenId The token id
+        @param _token The ERC721 token address
+        @param _tokenId The ERC721 token id
         @param _salt An entropy value, used to generate the id
 
         @return The id of the escrow
@@ -127,8 +127,8 @@ contract EmytoERC721Escrow {
         @param _agent The agent address
         @param _depositant The depositant address
         @param _retreader The retrea    der address
-        @param _token The token address
-        @param _tokenId The token id
+        @param _token The ERC721 token address
+        @param _tokenId The ERC721 token id
         @param _salt An entropy value, used to generate the id
         @param _agentSignature The signature provided by the agent
 
@@ -233,7 +233,7 @@ contract EmytoERC721Escrow {
         // Delete escrow
         delete escrows[_escrowId];
 
-        // Send the token to the depositant
+        // Send the ERC721 token to the depositant
         token.safeTransferFrom(address(this), depositant, tokenId);
 
         emit Cancel(_escrowId);

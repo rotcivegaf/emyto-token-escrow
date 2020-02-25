@@ -3,7 +3,7 @@
   "plugins": ["security"],
   "rules": {
     "error-reason": "off",
-    "indentation": ["error", 2],
+    "indentation": ["error", 4],
     "lbrace": "off",
     "linebreak-style": ["error", "unix"],
     "no-constant": ["error"],
