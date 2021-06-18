@@ -1,6 +1,8 @@
-pragma solidity ^0.5.11;
+pragma solidity ^0.8.0;
 
-import "./interfaces/IERC721.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 
 /**
@@ -8,32 +10,29 @@ import "./interfaces/IERC721.sol";
     @author Victor Fage <victorfage@gmail.com>
 */
 contract EmytoERC721Escrow {
+    using ECDSA for bytes32;
 
     // Events
 
     event CreateEscrow(
-        bytes32 _escrowId,
-        address _agent,
-        address _depositant,
-        address _retreader,
-        IERC721 _token,
-        uint256 _tokenId,
-        uint256 _salt
+        bytes32 escrowId,
+        address agent,
+        address depositant,
+        address retreader,
+        IERC721 token,
+        uint256 tokenId,
+        uint256 salt
     );
 
-    event SignedCreateEscrow(bytes32 _escrowId, bytes _agentSignature);
+    event SignedCreateEscrow(bytes32 escrowId, bytes agentSignature);
 
-    event CancelSignature(bytes _agentSignature);
+    event CancelSignature(bytes agentSignature);
 
-    event Deposit(bytes32 _escrowId);
+    event Deposit(bytes32 escrowId);
 
-    event Withdraw(
-        bytes32 _escrowId,
-        address _sender,
-        address _to
-    );
+    event Withdraw(bytes32 escrowId, address to);
 
-    event Cancel(bytes32 _escrowId);
+    event Cancel(bytes32 escrowId);
 
     struct Escrow {
         address agent;
@@ -60,7 +59,7 @@ contract EmytoERC721Escrow {
         @param _tokenId The ERC721 token id
         @param _salt An entropy value, used to generate the id
 
-        @return The id of the escrow
+        @return escrowId The id of the escrow
     */
     function calculateId(
         address _agent,
@@ -69,8 +68,8 @@ contract EmytoERC721Escrow {
         IERC721 _token,
         uint256 _tokenId,
         uint256 _salt
-    ) public view returns(bytes32) {
-        return keccak256(
+    ) public view returns(bytes32 escrowId) {
+        escrowId = keccak256(
             abi.encodePacked(
                 address(this),
                 _agent,
@@ -100,7 +99,7 @@ contract EmytoERC721Escrow {
         @param _tokenId The ERC721 token id
         @param _salt An entropy value, used to generate the id
 
-        @return The id of the escrow
+        @return escrowId The id of the escrow
     */
     function createEscrow(
         address _depositant,
@@ -132,7 +131,7 @@ contract EmytoERC721Escrow {
         @param _salt An entropy value, used to generate the id
         @param _agentSignature The signature provided by the agent
 
-        @return The id of the escrow
+        @return escrowId The id of the escrow
     */
     function signedCreateEscrow(
         address _agent,
@@ -152,11 +151,11 @@ contract EmytoERC721Escrow {
             _salt
         );
 
-        require(!canceledSignatures[_agent][_agentSignature], "signedCreateEscrow: The signature was canceled");
+        require(!canceledSignatures[_agent][_agentSignature], "EmytoERC721Escrow::signedCreateEscrow: The signature was canceled");
 
         require(
-            _agent == _ecrecovery(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", escrowId)), _agentSignature),
-            "signedCreateEscrow: Invalid agent signature"
+            _agent == escrowId.toEthSignedMessageHash().recover(_agentSignature),
+            "EmytoERC721Escrow::signedCreateEscrow: Invalid agent signature"
         );
 
         emit SignedCreateEscrow(escrowId, _agentSignature);
@@ -182,7 +181,7 @@ contract EmytoERC721Escrow {
     */
     function deposit(bytes32 _escrowId) external {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.depositant, "deposit: The sender should be the depositant");
+        require(msg.sender == escrow.depositant, "EmytoERC721Escrow::deposit: The sender should be the depositant");
 
         // Transfer the erc721 token
         escrow.token.transferFrom(msg.sender, address(this), escrow.tokenId);
@@ -224,7 +223,7 @@ contract EmytoERC721Escrow {
     */
     function cancel(bytes32 _escrowId) external {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.agent, "cancel: The sender should be the agent");
+        require(msg.sender == escrow.agent, "EmytoERC721Escrow::cancel: The sender should be the agent");
 
         address depositant = escrow.depositant;
         IERC721 token = escrow.token;
@@ -260,7 +259,7 @@ contract EmytoERC721Escrow {
         );
 
         // Check if the escrow was created
-        require(escrows[escrowId].agent == address(0), "createEscrow: The escrow exists");
+        require(escrows[escrowId].agent == address(0), "EmytoERC721Escrow::createEscrow: The escrow exists");
 
         // Add escrow to the escrows array
         escrows[escrowId] = Escrow({
@@ -283,34 +282,12 @@ contract EmytoERC721Escrow {
         @param _approved The address of approved
         @param _to The address of gone the tokens
     */
-    function _withdraw(
-        bytes32 _escrowId,
-        address _approved,
-        address _to
-    ) internal {
+    function _withdraw(bytes32 _escrowId, address _approved, address _to) internal {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == _approved || msg.sender == escrow.agent, "_withdraw: The sender should be the _approved or the agent");
+        require(msg.sender == _approved || msg.sender == escrow.agent, "EmytoERC721Escrow::_withdraw: The sender should be the _approved or the agent");
 
         escrow.token.safeTransferFrom(address(this), _to, escrow.tokenId);
 
-        emit Withdraw(_escrowId, msg.sender, _to);
-    }
-
-    function _ecrecovery(bytes32 _hash, bytes memory _sig) internal pure returns (address) {
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(_sig, 32))
-            s := mload(add(_sig, 64))
-            v := and(mload(add(_sig, 65)), 255)
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-
-        return ecrecover(_hash, v, r, s);
+        emit Withdraw(_escrowId, _to);
     }
 }
