@@ -14,7 +14,7 @@
     "lint": "npm run lint:js && npm run lint:sol",
     "lint:fix": "npm run lint:js:fix && npm run lint:sol:fix",
     "coverage": "bin/coverage.sh",
-    "test": "bin/test.sh"
+    "test": "node_modules/.bin/truffle test test/TestEmytoERC20Escrow.js test/TestEmytoERC721Escrow.js",
   },
   "repository": {
     "type": "git",
