@@ -7,14 +7,11 @@
     "test"
   ],
   "scripts": {
-    "lint:js": "eslint .",
-    "lint:js:fix": "eslint . --fix",
-    "lint:sol": "solium -d .",
-    "lint:sol:fix": "solium -d . --fix",
+    "lint:js": "node_modules/.bin/eslint .",
+    "lint:sol": "node_modules/.bin/solhint \"**/*.sol\"",
     "lint": "npm run lint:js && npm run lint:sol",
-    "lint:fix": "npm run lint:js:fix && npm run lint:sol:fix",
-    "coverage": "bin/coverage.sh",
     "test": "node_modules/.bin/truffle test test/TestEmytoERC20Escrow.js test/TestEmytoERC721Escrow.js",
+    "coverage": "node_modules/.bin/truffle run coverage test/TestEmytoERC20Escrow.js test/TestEmytoERC721Escrow.js"
   },
   "repository": {
     "type": "git",
@@ -45,10 +42,8 @@
     "eslint-plugin-node": "^5.2.1",
     "eslint-plugin-promise": "^3.8.0",
     "eslint-plugin-standard": "^3.1.0",
-    "ganache-cli": "^6.4.3",
-    "ganache-cli-coverage": "agusx1211/ganache-cli#coverage",
-    "solidity-coverage": "rotcivegaf/solidity-coverage",
-    "solium": "^1.2.4",
+    "solhint": "^3.2.0",
+    "solidity-coverage": "^0.7.10",
     "truffle": "^5.0.12"
   }
 }
