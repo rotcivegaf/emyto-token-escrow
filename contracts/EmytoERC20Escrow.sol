@@ -1,70 +1,65 @@
-pragma solidity ^0.5.11;
+pragma solidity ^0.8.0;
 
-import "./utils/Ownable.sol";
-import "./utils/SafeERC20.sol";
-import "./utils/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "./interfaces/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 /**
-    @title Emyto token escrow
+    @title Emyto ERC20 escrow
     @author Victor Fage <victorfage@gmail.com>
 */
-contract EmytoTokenEscrow is Ownable {
+contract EmytoERC20Escrow is Ownable {
+    using ECDSA for bytes32;
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
 
     // Events
 
     event CreateEscrow(
-        bytes32 _escrowId,
-        address _agent,
-        address _depositant,
-        address _retreader,
-        uint256 _fee,
-        IERC20 _token,
-        uint256 _salt
+        bytes32 escrowId,
+        address agent,
+        address depositant,
+        address retreader,
+        uint256 fee,
+        IERC20 token,
+        uint256 salt
     );
 
-    event SignedCreateEscrow(bytes32 _escrowId, bytes _agentSignature);
+    event SignedCreateEscrow(bytes32 escrowId, bytes agentSignature);
 
-    event CancelSignature(bytes _agentSignature);
+    event CancelSignature(bytes agentSignature);
 
-    event Deposit(
-        bytes32 _escrowId,
-        uint256 _toEscrow,
-        uint256 _toEmyto
-    );
+    event Deposit(bytes32 escrowId, uint256 toEscrow, uint256 toEmyto);
 
     event Withdraw(
-        bytes32 _escrowId,
-        address _sender,
-        address _to,
-        uint256 _toAmount,
-        uint256 _toAgent
+        bytes32 escrowId,
+        address to,
+        uint256 toAmount,
+        uint256 toAgent
     );
 
-    event Cancel(bytes32 _escrowId, uint256 _amount);
+    event Cancel(bytes32 escrowId, uint256 amount);
 
-    event SetEmytoFee(uint256 _fee);
+    event SetEmytoFee(uint256 fee);
 
-    event EmytoWithdraw(IERC20 _token, address _to, uint256 _amount);
+    event EmytoWithdraw(IERC20 token, address to, uint256 amount);
 
     struct Escrow {
         address agent;
         address depositant;
         address retreader;
-        uint256 fee;
         IERC20 token;
-        uint256 balance;
+        uint240 balance;
+        uint16  fee;
     }
 
     // 10000 ==  100%
     //   505 == 5.05%
     uint256 public BASE = 10000;
-    uint256 private MAX_EMYTO_FEE = 50;
-    uint256 private MAX_AGENT_FEE = 1000;
+    uint256 private MAX_EMYTO_FEE =   50; // 0.5%
+    uint16  private MAX_AGENT_FEE = 1000; // 10%
     uint256 public emytoFee;
 
     // Token to balance of emyto
@@ -83,7 +78,7 @@ contract EmytoTokenEscrow is Ownable {
         @param _fee The new emyto fee
     */
     function setEmytoFee(uint256 _fee) external onlyOwner {
-        require(_fee <= MAX_EMYTO_FEE, "setEmytoFee: The emyto fee should be low or equal than the MAX_EMYTO_FEE");
+        require(_fee <= MAX_EMYTO_FEE, "EmytoERC20Escrow::setEmytoFee: The emyto fee should be low or equal than the MAX_EMYTO_FEE");
         emytoFee = _fee;
 
         emit SetEmytoFee(_fee);
@@ -98,19 +93,12 @@ contract EmytoTokenEscrow is Ownable {
         @param _to The address destination of the tokens
         @param _amount The amount to withdraw
     */
-    function emytoWithdraw(
-        IERC20 _token,
-        address _to,
-        uint256 _amount
-    ) external onlyOwner {
-        require(_to != address(0), "emytoWithdraw: The to address 0 its invalid");
+    function emytoWithdraw(IERC20 _token, address _to, uint256 _amount) external onlyOwner {
+        require(_to != address(0), "EmytoERC20Escrow::emytoWithdraw: The to address 0 its invalid");
 
-        emytoBalances[address(_token)] = emytoBalances[address(_token)].sub(_amount);
+        emytoBalances[address(_token)] -= _amount;
 
-        require(
-            _token.safeTransfer(_to, _amount),
-            "emytoWithdraw: Error transfer to emyto"
-        );
+        _token.safeTransfer(_to, _amount);
 
         emit EmytoWithdraw(_token, _to, _amount);
     }
@@ -129,17 +117,17 @@ contract EmytoTokenEscrow is Ownable {
         @param _token The token address
         @param _salt An entropy value, used to generate the id
 
-        @return The id of the escrow
+        @return escrowId The id of the escrow
     */
     function calculateId(
         address _agent,
         address _depositant,
         address _retreader,
-        uint256 _fee,
+        uint16 _fee,
         IERC20 _token,
         uint256 _salt
-    ) public view returns(bytes32) {
-        return keccak256(
+    ) public view returns(bytes32 escrowId) {
+        escrowId = keccak256(
             abi.encodePacked(
                 address(this),
                 _agent,
@@ -174,12 +162,12 @@ contract EmytoTokenEscrow is Ownable {
         @param _token The token address
         @param _salt An entropy value, used to generate the id
 
-        @return The id of the escrow
+        @return escrowId The id of the escrow
     */
     function createEscrow(
         address _depositant,
         address _retreader,
-        uint256 _fee,
+        uint16  _fee,
         IERC20 _token,
         uint256 _salt
     ) external returns(bytes32 escrowId) {
@@ -206,13 +194,13 @@ contract EmytoTokenEscrow is Ownable {
         @param _salt An entropy value, used to generate the id
         @param _agentSignature The signature provided by the agent
 
-        @return The id of the escrow
+        @return escrowId The id of the escrow
     */
     function signedCreateEscrow(
         address _agent,
         address _depositant,
         address _retreader,
-        uint256 _fee,
+        uint16  _fee,
         IERC20 _token,
         uint256 _salt,
         bytes calldata _agentSignature
@@ -226,11 +214,11 @@ contract EmytoTokenEscrow is Ownable {
             _salt
         );
 
-        require(!canceledSignatures[_agent][_agentSignature], "signedCreateEscrow: The signature was canceled");
+        require(!canceledSignatures[_agent][_agentSignature], "EmytoERC20Escrow::signedCreateEscrow: The signature was canceled");
 
         require(
-            _agent == _ecrecovery(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", escrowId)), _agentSignature),
-            "signedCreateEscrow: Invalid agent signature"
+            _agent == escrowId.toEthSignedMessageHash().recover(_agentSignature),
+            "EmytoERC20Escrow::signedCreateEscrow: Invalid agent signature"
         );
 
         emit SignedCreateEscrow(escrowId, _agentSignature);
@@ -257,21 +245,18 @@ contract EmytoTokenEscrow is Ownable {
     */
     function deposit(bytes32 _escrowId, uint256 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.depositant, "deposit: The sender should be the depositant");
+        require(msg.sender == escrow.depositant, "EmytoERC20Escrow::deposit: The sender should be the depositant");
 
         uint256 toEmyto = _feeAmount(_amount, emytoFee);
 
         // Transfer the tokens
-        require(
-            escrow.token.safeTransferFrom(msg.sender, address(this), _amount),
-            "deposit: Error deposit tokens"
-        );
+        escrow.token.safeTransferFrom(msg.sender, address(this), _amount);
 
         // Assign the fee amount to emyto
         emytoBalances[address(escrow.token)] += toEmyto;
         // Assign the deposit amount to the escrow, subtracting the fee emyto amount
-        uint256 toEscrow = _amount.sub(toEmyto);
-        escrow.balance += toEscrow;
+        uint256 toEscrow = _amount - toEmyto;
+        escrow.balance += uint240(toEscrow);
 
         emit Deposit(_escrowId, toEscrow, toEmyto);
     }
@@ -284,7 +269,7 @@ contract EmytoTokenEscrow is Ownable {
         @param _escrowId The id of the escrow
         @param _amount The base amount
     */
-    function withdrawToRetreader(bytes32 _escrowId, uint256 _amount) external {
+    function withdrawToRetreader(bytes32 _escrowId, uint240 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
         _withdraw(_escrowId, escrow.depositant, escrow.retreader, _amount);
     }
@@ -297,7 +282,7 @@ contract EmytoTokenEscrow is Ownable {
         @param _escrowId The id of the escrow
         @param _amount The base amount
     */
-    function withdrawToDepositant(bytes32 _escrowId, uint256 _amount) external {
+    function withdrawToDepositant(bytes32 _escrowId, uint240 _amount) external {
         Escrow storage escrow = escrows[_escrowId];
         _withdraw(_escrowId, escrow.retreader, escrow.depositant, _amount);
     }
@@ -312,7 +297,7 @@ contract EmytoTokenEscrow is Ownable {
     */
     function cancel(bytes32 _escrowId) external {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == escrow.agent, "cancel: The sender should be the agent");
+        require(msg.sender == escrow.agent, "EmytoERC20Escrow::cancel: The sender should be the agent");
 
         uint256 balance = escrow.balance;
         address depositant = escrow.depositant;
@@ -323,10 +308,7 @@ contract EmytoTokenEscrow is Ownable {
 
         // Send the tokens to the depositant if the escrow have balance
         if (balance != 0)
-            require(
-                token.safeTransfer(depositant, balance),
-                "cancel: Error transfer to the depositant"
-            );
+            token.safeTransfer(depositant, balance);
 
         emit Cancel(_escrowId, balance);
     }
@@ -337,11 +319,11 @@ contract EmytoTokenEscrow is Ownable {
         address _agent,
         address _depositant,
         address _retreader,
-        uint256 _fee,
+        uint16  _fee,
         IERC20 _token,
         uint256 _salt
     ) internal returns(bytes32 escrowId) {
-        require(_fee <= MAX_AGENT_FEE, "createEscrow: The agent fee should be low or equal than 1000");
+        require(_fee <= MAX_AGENT_FEE, "EmytoERC20Escrow::createEscrow: The agent fee should be low or equal than 1000");
 
         // Calculate the escrow id
         escrowId = calculateId(
@@ -354,7 +336,7 @@ contract EmytoTokenEscrow is Ownable {
         );
 
         // Check if the escrow was created
-        require(escrows[escrowId].agent == address(0), "createEscrow: The escrow exists");
+        require(escrows[escrowId].agent == address(0), "EmytoERC20Escrow::createEscrow: The escrow exists");
 
         // Add escrow to the escrows array
         escrows[escrowId] = Escrow({
@@ -383,29 +365,23 @@ contract EmytoTokenEscrow is Ownable {
         bytes32 _escrowId,
         address _approved,
         address _to,
-        uint256 _amount
+        uint240 _amount
     ) internal {
         Escrow storage escrow = escrows[_escrowId];
-        require(msg.sender == _approved || msg.sender == escrow.agent, "_withdraw: The sender should be the _approved or the agent");
+        require(msg.sender == _approved || msg.sender == escrow.agent, "EmytoERC20Escrow::_withdraw: The sender should be the _approved or the agent");
 
         // Calculate the fee
-        uint256 toAgent = _feeAmount(_amount, escrow.fee);
+        uint256 toAgent = _feeAmount(_amount, uint256(escrow.fee));
         // Actualize escrow balance in storage
-        escrow.balance = escrow.balance.sub(_amount);
+        escrow.balance -= _amount;
         // Send fee to the agent
-        require(
-            escrow.token.safeTransfer(escrow.agent, toAgent),
-            "_withdraw: Error transfer tokens to the agent"
-        );
+        escrow.token.safeTransfer(escrow.agent, toAgent);
         // Substract the agent fee
-        uint256 toAmount = _amount.sub(toAgent);
+        uint256 toAmount = _amount - toAgent;
         // Send amount to the _to
-        require(
-            escrow.token.safeTransfer(_to, toAmount),
-            "_withdraw: Error transfer to the _to"
-        );
+        escrow.token.safeTransfer(_to, toAmount);
 
-        emit Withdraw(_escrowId, msg.sender, _to, toAmount, toAgent);
+        emit Withdraw(_escrowId, _to, toAmount, toAgent);
     }
 
     /**
@@ -418,28 +394,7 @@ contract EmytoTokenEscrow is Ownable {
 
         @return The calculate fee
     */
-    function _feeAmount(
-        uint256 _amount,
-        uint256 _fee
-    ) internal view returns(uint256) {
-        return _amount.mul(_fee).div(BASE);
-    }
-
-    function _ecrecovery(bytes32 _hash, bytes memory _sig) internal pure returns (address) {
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        assembly {
-            r := mload(add(_sig, 32))
-            s := mload(add(_sig, 64))
-            v := and(mload(add(_sig, 65)), 255)
-        }
-
-        if (v < 27) {
-            v += 27;
-        }
-
-        return ecrecover(_hash, v, r, s);
+    function _feeAmount(uint256 _amount, uint256 _fee) internal view returns(uint256) {
+        return (_amount * _fee) / BASE;
     }
 }
