@@ -25,6 +25,21 @@ The percentages of the contract are calculated on the basis of 10,000, which mea
 - 1 corresponds to 0.01%
 - 12345 corresponds to 123.45%
 
+## Addresses
+
+| Net         | Name              | Address
+|------------ |------------------ | -------
+| ETH Mainnet | EmytoERC20Escrow  | [0x29a1914747eaa45877a422d7c734911c01bbb99e](https://etherscan.io/address/0x29a1914747eaa45877a422d7c734911c01bbb99e)
+| ETH Mainnet | EmytoERC721Escrow | [0x8e659f43009b56CF1882dA9b787A0A85B01B4c1B](https://etherscan.io/address/0x8e659f43009b56cf1882da9b787a0a85b01b4c1b)
+| Ropsten     | EmytoERC20Escrow  | [0xf32092b7c47e08e41220d8b5f727b96413e0a3e0](https://ropsten.etherscan.io/address/0xf32092b7c47e08e41220d8b5f727b96413e0a3e0)
+| Ropsten     | EmytoERC721Escrow | [0xa1c1dd7e50686e2edfe8dcb921d8eda0ce242510](https://ropsten.etherscan.io/address/0xa1c1dd7e50686e2edfe8dcb921d8eda0ce242510)
+| BSC         | EmytoERC20Escrow  | [0xddbc97e87eb04c670c6aed2aaa49c505cce326ad](https://bscscan.com/address/0xddbc97e87eb04c670c6aed2aaa49c505cce326ad)
+| BSC         | EmytoERC721Escrow | [0x0a740bfea858eedcc84f900a3d28aae01a17c5fc](https://bscscan.com/address/0x0a740bfea858eedcc84f900a3d28aae01a17c5fc)
+| Polygon     | EmytoERC20Escrow  | [0xf42bfadd0db306df1ce729237288fdf59c9faf4c](https://polygonscan.com/address/0xf42bfadd0db306df1ce729237288fdf59c9faf4c)
+| Polygon     | EmytoERC721Escrow | [0x5f33350c95fbd117e4b4b162c5319a751b3ddb96](https://polygonscan.com/address/0x5f33350c95fbd117e4b4b162c5319a751b3ddb96)
+| xDai        | EmytoERC20Escrow  | [0xeC7fF01AdD91374c26c8225a2332B692F2680944](https://blockscout.com/xdai/mainnet/address/0xeC7fF01AdD91374c26c8225a2332B692F2680944/transactions)
+| xDai        | EmytoERC721Escrow | [0x30e2d7abFa192c5ea6F4944d600019DC92EB5745](https://blockscout.com/xdai/mainnet/address/0x30e2d7abFa192c5ea6F4944d600019DC92EB5745/transactions)
+
 ## Create an escrow
 
 There are 2 types of functions:
