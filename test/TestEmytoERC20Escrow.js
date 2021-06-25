@@ -15,7 +15,6 @@ const {
   randombnBetween,
   random32,
   random32bn,
-  sign,
 } = require('./Helper.js');
 
 contract('EmytoERC20Escrow', (accounts) => {

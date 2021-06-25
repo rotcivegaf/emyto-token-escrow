@@ -3,6 +3,6 @@ module.exports = {
   testCommand: 'npm test',
   compileCommand: 'npm run compile',
   skipFiles: [
-      'mocks',
+    'mocks',
   ],
 }
