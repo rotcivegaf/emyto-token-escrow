@@ -12,7 +12,7 @@ const {
   expect,
   random32,
   random32bn,
-} = require('./Helper.js');
+} = require('./helpers.js');
 
 contract('EmytoERC721Escrow', (accounts) => {
   const owner = accounts[1];

@@ -15,7 +15,7 @@ const {
   randombnBetween,
   random32,
   random32bn,
-} = require('./Helper.js');
+} = require('./helpers.js');
 
 contract('EmytoERC20Escrow', (accounts) => {
   const WEI = bn(web3.utils.toWei('1'));
