@@ -297,7 +297,7 @@ contract('EmytoERC20Escrow', (accounts) => {
       );
 
       // With signature
-      const agentSignature = await sign(escrowId, basicEscrow.agent);
+      const agentSignature = await web3.eth.sign(escrowId, basicEscrow.agent);
       await expectRevert(
         erc20Escrow.signedCreateEscrow(
           basicEscrow.agent,
@@ -355,7 +355,7 @@ contract('EmytoERC20Escrow', (accounts) => {
       const salt = random32bn();
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
 
-      const agentSignature = await sign(id, agent);
+      const agentSignature = await web3.eth.sign(id, agent);
 
       expectEvent(
         await erc20Escrow.signedCreateEscrow(
@@ -384,7 +384,7 @@ contract('EmytoERC20Escrow', (accounts) => {
       const salt = random32bn();
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
 
-      const agentSignature = await sign(id, agent);
+      const agentSignature = await web3.eth.sign(id, agent);
 
       await erc20Escrow.signedCreateEscrow(
         agent,
@@ -427,7 +427,7 @@ contract('EmytoERC20Escrow', (accounts) => {
       const salt = random32bn();
 
       // With wrong id
-      const wrongSignature = await sign([], agent);
+      const wrongSignature = await web3.eth.sign([], agent);
       await expectRevert(
         erc20Escrow.signedCreateEscrow(
           agent,
@@ -444,7 +444,7 @@ contract('EmytoERC20Escrow', (accounts) => {
 
       // With wrong agent in calcId
       const id = await calcId(creator, depositant, retreader, 0, erc20.address, salt);
-      const wrongSignature2 = await sign(id, agent);
+      const wrongSignature2 = await web3.eth.sign(id, agent);
 
       await expectRevert(
         erc20Escrow.signedCreateEscrow(
@@ -461,7 +461,7 @@ contract('EmytoERC20Escrow', (accounts) => {
       );
 
       // With wrong signer
-      const wrongSignature3 = await sign(id, creator);
+      const wrongSignature3 = await web3.eth.sign(id, creator);
 
       await expectRevert(
         erc20Escrow.signedCreateEscrow(
@@ -479,7 +479,7 @@ contract('EmytoERC20Escrow', (accounts) => {
     });
     it('Try create a signed basic escrow with canceled signature', async () => {
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
-      const canceledSignature = await sign(id, agent);
+      const canceledSignature = await web3.eth.sign(id, agent);
 
       await erc20Escrow.cancelSignature(canceledSignature, { from: agent });
 
@@ -503,7 +503,7 @@ contract('EmytoERC20Escrow', (accounts) => {
       const salt = random32bn();
       const id = await calcId(agent, depositant, retreader, 0, erc20.address, salt);
 
-      const agentSignature = await sign(id, agent);
+      const agentSignature = await web3.eth.sign(id, agent);
 
       assert.isFalse(await erc20Escrow.canceledSignatures(agent, agentSignature));
 
